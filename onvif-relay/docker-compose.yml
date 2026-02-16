@@ -1,6 +1,12 @@
 services:
   onvif-relay:
+    # Option 1: Build locally (for development)
     build: .
+
+    # Option 2: Use pre-built multi-arch image from GitHub Container Registry
+    # Uncomment the line below and comment out "build: ." to use pre-built image
+    # image: ghcr.io/mooglejp/atomcam_tools/onvif-relay:latest
+
     restart: unless-stopped
     ports:
       - "8080:8080"       # ONVIF SOAP
