@@ -1,0 +1,29 @@
+services:
+  onvif-relay:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"       # ONVIF SOAP
+      - "3702:3702/udp"   # WS-Discovery
+    volumes:
+      - ./config:/config
+    environment:
+      - TZ=Asia/Tokyo
+    depends_on:
+      - mediamtx
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    restart: unless-stopped
+    ports:
+      - "8554:8554"       # RTSP
+      - "8000:8000/udp"   # RTP
+      - "8001:8001/udp"   # RTCP
+      - "8888:8888"       # HLS
+      - "8889:8889"       # WebRTC HTTP
+      - "8189:8189/udp"   # WebRTC ICE
+      - "9997:9997"       # REST API
+    volumes:
+      - ./config/mediamtx.yml:/mediamtx.yml
+    environment:
+      - TZ=Asia/Tokyo

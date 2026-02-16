@@ -1,0 +1,36 @@
+###############################################
+# mediamtx configuration for ONVIF relay
+###############################################
+
+# Enable REST API (required for onvif-relay to register paths)
+api: true
+apiAddress: :9997
+
+# RTSP settings
+rtspAddress: :8554
+# TCP-only avoids UDP NAT issues through Docker bridge network
+rtspTransports: [tcp]
+
+# Timeout settings (Atomcam streams can be bursty)
+readTimeout: 15m
+writeTimeout: 10s
+# Large queue for HEVC keyframes (default 512 is too small)
+writeQueueSize: 4096
+
+# Allow API access from Docker network (default restricts to 127.0.0.1 only)
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: api
+      - action: publish
+      - action: read
+      - action: playback
+
+# Paths are dynamically configured by onvif-relay via the API.
+# You can also add static paths here if needed:
+# paths:
+#   camera/1:
+#     runOnDemand: ffmpeg ...
+#     runOnDemandRestart: yes

@@ -1,0 +1,56 @@
+server:
+  onvif_port: 8080
+  device_name: "AtomCam ONVIF Relay"
+  discovery: true
+  # CRITICAL: Change these default credentials before deployment!
+  # Using admin/admin in production is a security risk.
+  auth:
+    username: "admin"
+    password: "admin"
+  # mediamtx integration - RTSP streaming is handled by mediamtx
+  mediamtx:
+    api: "http://mediamtx:9997"    # mediamtx REST API endpoint (Docker service name)
+    # rtsp_host: "10.255.255.2"    # IP clients use to reach mediamtx (auto-detected if omitted)
+    rtsp_port: 8554                 # mediamtx RTSP port
+
+cameras:
+  - name: "frontdoor"
+    host: "atomcam-front.local"
+    rtsp_port: 8554
+    http_port: 80
+    # Camera HTTP Digest auth credentials
+    username: "user"
+    password: "pass"
+    # Audio transcoding: ffmpeg via mediamtx runOnDemand
+    # Supported codecs: pcm_mulaw, pcm_alaw, aac, etc.
+    audio_transcode: "pcm_mulaw"
+    audio_volume: 8.0  # Volume gain (1.0 = no change)
+    capabilities:
+      ptz: false
+      ir: true
+    streams:
+      - path: "video0_unicast"
+        resolution: "1920x1080"
+        codec: "h264"
+        profile_name: "FrontDoor_Main"
+      - path: "video1_unicast"
+        resolution: "640x360"
+        codec: "h264"
+        profile_name: "FrontDoor_Sub"
+
+  - name: "garage"
+    host: "192.168.1.20"
+    rtsp_port: 8554
+    http_port: 80
+    capabilities:
+      ptz: true
+      ir: true
+    streams:
+      - path: "video0_unicast"
+        resolution: "1920x1080"
+        codec: "h265"
+        profile_name: "Garage_Main"
+      - path: "video1_unicast"
+        resolution: "640x360"
+        codec: "h264"
+        profile_name: "Garage_Sub"
