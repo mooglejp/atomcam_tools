@@ -208,7 +208,8 @@ func BuildFFmpegCommand(camera *config.CameraConfig, stream *config.StreamConfig
 			sampleRate = "48000"
 		}
 		cmd += fmt.Sprintf(" -c:a %s -ar %s -ac 1 -async 1 -af volume=%.1f", audioCodec, sampleRate, audioVolume)
-		cmd += fmt.Sprintf(" -rtsp_transport tcp -f rtsp rtsp://localhost:%d/$MTX_PATH", mtxConfig.RTSPPort)
+		// Limit RTP packet size to avoid MTU issues (standard Ethernet MTU is 1500)
+		cmd += fmt.Sprintf(" -max_delay 500000 -rtsp_transport tcp -f rtsp rtsp://localhost:%d/$MTX_PATH", mtxConfig.RTSPPort)
 	}
 
 	return cmd
