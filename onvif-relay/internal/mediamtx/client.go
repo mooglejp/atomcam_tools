@@ -168,16 +168,17 @@ func isPathExistsError(err error) bool {
 
 // BuildFFmpegCommand builds the ffmpeg command for a stream
 func BuildFFmpegCommand(camera *config.CameraConfig, stream *config.StreamConfig, mtxConfig *config.MediamtxConfig) string {
-	// Source RTSP URL (without embedded credentials)
+	// Source RTSP URL with embedded credentials
+	// Note: ffmpeg does not support separate -user/-password options for RTSP protocol.
+	// URL embedding is the only supported method, despite process visibility concerns.
 	sourceURL := fmt.Sprintf("rtsp://%s:%d/%s", camera.Host, camera.RTSPPort, stream.Path)
-
-	// Base ffmpeg options with credentials via -user/-password (not embedded in URL)
-	cmd := "ffmpeg -fflags +genpts -rtsp_transport tcp"
 	if camera.Username != "" && camera.Password != "" {
-		// Use -rtsp_user and -rtsp_password options instead of embedding in URL
-		cmd += fmt.Sprintf(" -rtsp_user %s -rtsp_password %s", camera.Username, camera.Password)
+		sourceURL = fmt.Sprintf("rtsp://%s:%s@%s:%d/%s",
+			camera.Username, camera.Password, camera.Host, camera.RTSPPort, stream.Path)
 	}
-	cmd += fmt.Sprintf(" -i %s -map 0:v:0 -map 0:a:0? -c:v copy", sourceURL)
+
+	// Base ffmpeg options
+	cmd := fmt.Sprintf("ffmpeg -fflags +genpts -rtsp_transport tcp -i %s -map 0:v:0 -map 0:a:0? -c:v copy", sourceURL)
 
 	// Audio transcoding settings
 	audioCodec := camera.AudioTranscode
