@@ -587,8 +587,7 @@ func (s *Service) AbsoluteMove(profileToken string, position PTZVector, speed *P
 		currentPan, currentTilt := profile.Camera.GetPTZPosition()
 
 		// Check if position is uninitialized
-		const invalidPos = -9223372036854775808
-		if currentPan == invalidPos || currentTilt == invalidPos || currentPan < 0 || currentTilt < 0 {
+		if currentPan == math.MinInt || currentTilt == math.MinInt || currentPan < 0 || currentTilt < 0 {
 			// Use home position or center as default
 			if profile.Camera.Config.PTZ.Home != nil {
 				currentPan = profile.Camera.Config.PTZ.Home.Pan
@@ -695,9 +694,8 @@ func (s *Service) RelativeMove(profileToken string, translation PTZVector, speed
 	// Get current position
 	currentPan, currentTilt := profile.Camera.GetPTZPosition()
 
-	// Check if position is uninitialized (int min/max value indicates uninitialized state)
-	const invalidPos = -9223372036854775808 // math.MinInt64
-	if currentPan == invalidPos || currentTilt == invalidPos || currentPan < 0 || currentTilt < 0 {
+	// Check if position is uninitialized (int min value indicates uninitialized state)
+	if currentPan == math.MinInt || currentTilt == math.MinInt || currentPan < 0 || currentTilt < 0 {
 		// Use home position or center as default
 		if profile.Camera.Config.PTZ.Home != nil {
 			currentPan = profile.Camera.Config.PTZ.Home.Pan
