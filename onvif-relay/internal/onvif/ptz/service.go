@@ -8,6 +8,7 @@ import (
 
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/camera"
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/config"
+	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/mqtt"
 )
 
 // GetNodesRequest represents GetNodes request
@@ -513,6 +514,20 @@ func (s *Service) GotoPreset(profileToken, presetToken string, speed *PTZSpeed) 
 
 	if preset == nil {
 		return fmt.Errorf("preset not found: %s", presetToken)
+	}
+
+	// Check if this is an MQTT preset
+	if preset.MQTTBroker != "" && preset.MQTTTopic != "" {
+		// MQTT preset: publish message instead of moving camera
+		log.Printf("PTZ GotoPreset: MQTT action - broker=%s, topic=%s, message=%s",
+			preset.MQTTBroker, preset.MQTTTopic, preset.MQTTMessage)
+
+		if err := mqtt.PublishMessage(preset.MQTTBroker, preset.MQTTTopic, preset.MQTTMessage); err != nil {
+			return fmt.Errorf("failed to publish MQTT message for preset %s: %w", presetToken, err)
+		}
+
+		log.Printf("PTZ GotoPreset: MQTT message published successfully")
+		return nil
 	}
 
 	// Default speed

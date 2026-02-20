@@ -64,12 +64,15 @@ type CapabilitiesConfig struct {
 	IR  bool `yaml:"ir"`
 }
 
-// PTZPreset represents a PTZ preset position
+// PTZPreset represents a PTZ preset position or MQTT action
 type PTZPreset struct {
-	Name  string `yaml:"name"`
-	Pan   int    `yaml:"pan"`   // 0-355 degrees
-	Tilt  int    `yaml:"tilt"`  // 0-180 degrees
-	Token string `yaml:"token,omitempty"` // Optional preset token (e.g., "1", "2", etc.)
+	Name        string `yaml:"name"`
+	Pan         int    `yaml:"pan,omitempty"`   // 0-355 degrees (omit if using MQTT)
+	Tilt        int    `yaml:"tilt,omitempty"`  // 0-180 degrees (omit if using MQTT)
+	Token       string `yaml:"token,omitempty"` // Optional preset token (e.g., "1", "2", etc.)
+	MQTTBroker  string `yaml:"mqtt_broker,omitempty"`  // MQTT broker URL (e.g., "tcp://localhost:1883")
+	MQTTTopic   string `yaml:"mqtt_topic,omitempty"`   // MQTT topic (e.g., "home/light/livingroom")
+	MQTTMessage string `yaml:"mqtt_message,omitempty"` // MQTT message payload (e.g., "ON")
 }
 
 // StreamConfig represents a single stream configuration
