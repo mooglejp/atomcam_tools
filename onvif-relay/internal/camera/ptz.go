@@ -28,10 +28,10 @@ func (c *Client) PTZMove(pan, tilt, speed int) error {
 
 // PTZStop stops PTZ movement
 func (c *Client) PTZStop() error {
-	// Stop command - move to current position with speed 0
-	// Some implementations use a specific stop command, but AtomCam uses move with speed 0
-	command := "move 0 0 0"
-	return c.SendCommand(command)
+	// AtomCam doesn't need explicit stop command
+	// ContinuousMove sends absolute positions, camera stops automatically when it reaches the target
+	// Sending "move 0 0 0" would cause the camera to move to position (0,0) which is wrong
+	return nil
 }
 
 // PTZGetPosition gets current PTZ position (stub - AtomCam doesn't provide position feedback)

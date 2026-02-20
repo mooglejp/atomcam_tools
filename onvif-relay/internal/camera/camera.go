@@ -1,6 +1,7 @@
 package camera
 
 import (
+	"log"
 	"sync"
 
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/config"
@@ -12,15 +13,33 @@ type Camera struct {
 	Client   *Client
 	healthMu sync.RWMutex
 	health   bool
+	ptzMu    sync.RWMutex
+	ptzPan   int // Current pan position (0-355)
+	ptzTilt  int // Current tilt position (0-180)
 }
 
 // NewCamera creates a new camera instance
 func NewCamera(cfg *config.CameraConfig) *Camera {
-	return &Camera{
-		Config: cfg,
-		Client: NewClient(cfg),
-		health: true,
+	// Initialize PTZ position to home position if available, otherwise center
+	pan := 177  // Default center
+	tilt := 90  // Default center
+	if cfg.PTZ.Home != nil {
+		pan = cfg.PTZ.Home.Pan
+		tilt = cfg.PTZ.Home.Tilt
 	}
+
+	cam := &Camera{
+		Config:  cfg,
+		Client:  NewClient(cfg),
+		health:  true,
+		ptzPan:  pan,
+		ptzTilt: tilt,
+	}
+
+	// Debug: Log initialization
+	log.Printf("NewCamera: %s initialized with PTZ position (%d, %d)", cfg.Name, pan, tilt)
+
+	return cam
 }
 
 // GetHealth returns the camera health status (thread-safe)
@@ -55,6 +74,21 @@ func (c *Camera) GetStreamByProfileName(profileName string) *config.StreamConfig
 		}
 	}
 	return nil
+}
+
+// GetPTZPosition returns the current PTZ position (thread-safe)
+func (c *Camera) GetPTZPosition() (pan, tilt int) {
+	c.ptzMu.RLock()
+	defer c.ptzMu.RUnlock()
+	return c.ptzPan, c.ptzTilt
+}
+
+// SetPTZPosition sets the current PTZ position (thread-safe)
+func (c *Camera) SetPTZPosition(pan, tilt int) {
+	c.ptzMu.Lock()
+	defer c.ptzMu.Unlock()
+	c.ptzPan = pan
+	c.ptzTilt = tilt
 }
 
 // Close stops the camera client's background goroutines

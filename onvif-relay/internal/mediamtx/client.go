@@ -181,7 +181,8 @@ func BuildFFmpegCommand(camera *config.CameraConfig, stream *config.StreamConfig
 	// -fflags +genpts: regenerate PTS/DTS timestamps
 	// -avoid_negative_ts make_zero: ensure timestamps start from zero
 	// -max_interleave_delta 0: disable interleaving to prevent DTS reordering
-	cmd := fmt.Sprintf("ffmpeg -fflags +genpts -avoid_negative_ts make_zero -max_interleave_delta 0 -rtsp_transport tcp -i %s -map 0:v:0 -map 0:a:0? -c:v copy", sourceURL)
+	// -rtsp_flags prefer_tcp: prefer TCP and send RTSP keepalive to prevent camera-side session timeout
+	cmd := fmt.Sprintf("ffmpeg -fflags +genpts -avoid_negative_ts make_zero -max_interleave_delta 0 -rtsp_transport tcp -rtsp_flags prefer_tcp -i %s -map 0:v:0 -map 0:a:0? -c:v copy", sourceURL)
 
 	// Audio transcoding settings
 	audioCodec := camera.AudioTranscode

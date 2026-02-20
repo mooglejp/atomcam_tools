@@ -79,11 +79,18 @@ func (c *Client) SendCommand(command string) error {
 		return fmt.Errorf("failed to marshal command: %w", err)
 	}
 
-	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	httpReq, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.ContentLength = int64(len(body))
+
+	// Set GetBody for Digest auth retry (Digest auth requires 2 requests)
+	httpReq.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(body)), nil
+	}
+	httpReq.Body, _ = httpReq.GetBody()
 
 	// Digest auth is handled by the http.Client.Transport
 	resp, err := c.httpClient.Do(httpReq)

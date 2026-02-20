@@ -13,11 +13,11 @@ type GetDeviceInformationRequest struct {
 // GetDeviceInformationResponse represents GetDeviceInformation response
 type GetDeviceInformationResponse struct {
 	XMLName      xml.Name `xml:"tds:GetDeviceInformationResponse"`
-	Manufacturer string   `xml:"Manufacturer"`
-	Model        string   `xml:"Model"`
-	FirmwareVersion string `xml:"FirmwareVersion"`
-	SerialNumber string   `xml:"SerialNumber"`
-	HardwareId   string   `xml:"HardwareId"`
+	Manufacturer string   `xml:"tds:Manufacturer"`
+	Model        string   `xml:"tds:Model"`
+	FirmwareVersion string `xml:"tds:FirmwareVersion"`
+	SerialNumber string   `xml:"tds:SerialNumber"`
+	HardwareId   string   `xml:"tds:HardwareId"`
 }
 
 // GetSystemDateAndTimeRequest represents GetSystemDateAndTime request
@@ -28,41 +28,41 @@ type GetSystemDateAndTimeRequest struct {
 // GetSystemDateAndTimeResponse represents GetSystemDateAndTime response
 type GetSystemDateAndTimeResponse struct {
 	XMLName        xml.Name       `xml:"tds:GetSystemDateAndTimeResponse"`
-	SystemDateAndTime SystemDateAndTime `xml:"SystemDateAndTime"`
+	SystemDateAndTime SystemDateAndTime `xml:"tds:SystemDateAndTime"`
 }
 
 // SystemDateAndTime represents system date and time
 type SystemDateAndTime struct {
-	DateTimeType string    `xml:"DateTimeType"`
-	DaylightSavings bool   `xml:"DaylightSavings"`
-	TimeZone     TimeZone  `xml:"TimeZone"`
-	UTCDateTime  DateTime  `xml:"UTCDateTime"`
-	LocalDateTime DateTime `xml:"LocalDateTime"`
+	DateTimeType string    `xml:"tt:DateTimeType"`
+	DaylightSavings bool   `xml:"tt:DaylightSavings"`
+	TimeZone     TimeZone  `xml:"tt:TimeZone"`
+	UTCDateTime  DateTime  `xml:"tt:UTCDateTime"`
+	LocalDateTime DateTime `xml:"tt:LocalDateTime"`
 }
 
 // TimeZone represents timezone information
 type TimeZone struct {
-	TZ string `xml:"TZ"`
+	TZ string `xml:"tt:TZ"`
 }
 
 // DateTime represents date and time
 type DateTime struct {
-	Time Time `xml:"Time"`
-	Date Date `xml:"Date"`
+	Time Time `xml:"tt:Time"`
+	Date Date `xml:"tt:Date"`
 }
 
 // Time represents time
 type Time struct {
-	Hour   int `xml:"Hour"`
-	Minute int `xml:"Minute"`
-	Second int `xml:"Second"`
+	Hour   int `xml:"tt:Hour"`
+	Minute int `xml:"tt:Minute"`
+	Second int `xml:"tt:Second"`
 }
 
 // Date represents date
 type Date struct {
-	Year  int `xml:"Year"`
-	Month int `xml:"Month"`
-	Day   int `xml:"Day"`
+	Year  int `xml:"tt:Year"`
+	Month int `xml:"tt:Month"`
+	Day   int `xml:"tt:Day"`
 }
 
 // Service represents the Device service

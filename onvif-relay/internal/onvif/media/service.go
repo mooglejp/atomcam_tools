@@ -3,6 +3,7 @@ package media
 import (
 	"encoding/xml"
 	"fmt"
+	"log"
 
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/camera"
 )
@@ -15,25 +16,25 @@ type GetProfilesRequest struct {
 // GetProfilesResponse represents GetProfiles response
 type GetProfilesResponse struct {
 	XMLName  xml.Name  `xml:"trt:GetProfilesResponse"`
-	Profiles []Profile `xml:"Profiles"`
+	Profiles []Profile `xml:"trt:Profiles"`
 }
 
 // Profile represents a media profile
 type Profile struct {
 	Token              string              `xml:"token,attr"`
 	Fixed              bool                `xml:"fixed,attr"`
-	Name               string              `xml:"Name"`
-	VideoSourceConfiguration *VideoSourceConfiguration `xml:"VideoSourceConfiguration,omitempty"`
-	VideoEncoderConfiguration *VideoEncoderConfiguration `xml:"VideoEncoderConfiguration,omitempty"`
-	PTZConfiguration   *PTZConfiguration   `xml:"PTZConfiguration,omitempty"`
+	Name               string              `xml:"tt:Name"`
+	VideoSourceConfiguration *VideoSourceConfiguration `xml:"tt:VideoSourceConfiguration,omitempty"`
+	VideoEncoderConfiguration *VideoEncoderConfiguration `xml:"tt:VideoEncoderConfiguration,omitempty"`
+	PTZConfiguration   *PTZConfiguration   `xml:"tt:PTZConfiguration,omitempty"`
 }
 
 // VideoSourceConfiguration represents video source configuration
 type VideoSourceConfiguration struct {
 	Token       string `xml:"token,attr"`
-	Name        string `xml:"Name"`
-	SourceToken string `xml:"SourceToken"`
-	Bounds      Bounds `xml:"Bounds"`
+	Name        string `xml:"tt:Name"`
+	SourceToken string `xml:"tt:SourceToken"`
+	Bounds      Bounds `xml:"tt:Bounds"`
 }
 
 // Bounds represents bounds
@@ -47,31 +48,31 @@ type Bounds struct {
 // VideoEncoderConfiguration represents video encoder configuration
 type VideoEncoderConfiguration struct {
 	Token      string     `xml:"token,attr"`
-	Name       string     `xml:"Name"`
-	Encoding   string     `xml:"Encoding"`
-	Resolution Resolution `xml:"Resolution"`
-	Quality    float64    `xml:"Quality"`
-	RateControl RateControl `xml:"RateControl,omitempty"`
+	Name       string     `xml:"tt:Name"`
+	Encoding   string     `xml:"tt:Encoding"`
+	Resolution Resolution `xml:"tt:Resolution"`
+	Quality    float64    `xml:"tt:Quality"`
+	RateControl RateControl `xml:"tt:RateControl,omitempty"`
 }
 
 // Resolution represents resolution
 type Resolution struct {
-	Width  int `xml:"Width"`
-	Height int `xml:"Height"`
+	Width  int `xml:"tt:Width"`
+	Height int `xml:"tt:Height"`
 }
 
 // RateControl represents rate control
 type RateControl struct {
-	FrameRateLimit      int `xml:"FrameRateLimit"`
-	EncodingInterval    int `xml:"EncodingInterval"`
-	BitrateLimit        int `xml:"BitrateLimit"`
+	FrameRateLimit      int `xml:"tt:FrameRateLimit"`
+	EncodingInterval    int `xml:"tt:EncodingInterval"`
+	BitrateLimit        int `xml:"tt:BitrateLimit"`
 }
 
 // PTZConfiguration represents PTZ configuration
 type PTZConfiguration struct {
 	Token    string `xml:"token,attr"`
-	Name     string `xml:"Name"`
-	NodeToken string `xml:"NodeToken"`
+	Name     string `xml:"tt:Name"`
+	NodeToken string `xml:"tt:NodeToken"`
 }
 
 // GetStreamUriRequest represents GetStreamUri request
@@ -95,15 +96,15 @@ type Transport struct {
 // GetStreamUriResponse represents GetStreamUri response
 type GetStreamUriResponse struct {
 	XMLName   xml.Name  `xml:"trt:GetStreamUriResponse"`
-	MediaUri  MediaUri  `xml:"MediaUri"`
+	MediaUri  MediaUri  `xml:"trt:MediaUri"`
 }
 
 // MediaUri represents media URI
 type MediaUri struct {
-	Uri               string `xml:"Uri"`
-	InvalidAfterConnect bool `xml:"InvalidAfterConnect"`
-	InvalidAfterReboot  bool `xml:"InvalidAfterReboot"`
-	Timeout           string `xml:"Timeout"`
+	Uri               string `xml:"tt:Uri"`
+	InvalidAfterConnect bool `xml:"tt:InvalidAfterConnect"`
+	InvalidAfterReboot  bool `xml:"tt:InvalidAfterReboot"`
+	Timeout           string `xml:"tt:Timeout"`
 }
 
 // GetSnapshotUriRequest represents GetSnapshotUri request
@@ -115,7 +116,7 @@ type GetSnapshotUriRequest struct {
 // GetSnapshotUriResponse represents GetSnapshotUri response
 type GetSnapshotUriResponse struct {
 	XMLName   xml.Name  `xml:"trt:GetSnapshotUriResponse"`
-	MediaUri  MediaUri  `xml:"MediaUri"`
+	MediaUri  MediaUri  `xml:"trt:MediaUri"`
 }
 
 // Service represents the Media service
@@ -147,6 +148,12 @@ func (s *Service) GetProfiles() *GetProfilesResponse {
 
 	for _, p := range profiles {
 		profile := s.buildProfile(&p)
+		// Debug: Check PTZ configuration
+		if profile.PTZConfiguration != nil {
+			log.Printf("Profile %s has PTZ: Token=%s", profile.Token, profile.PTZConfiguration.Token)
+		} else {
+			log.Printf("Profile %s has NO PTZ (camera PTZ capability: %v)", profile.Token, p.Camera.Config.Capabilities.PTZ)
+		}
 		resp.Profiles = append(resp.Profiles, *profile)
 	}
 
@@ -160,9 +167,18 @@ func (s *Service) GetStreamUri(profileToken string) (*GetStreamUriResponse, erro
 		return nil, fmt.Errorf("profile not found: %s", profileToken)
 	}
 
-	// Build RTSP URL: rtsp://{mediamtx_host}:{port}/{camera}/{stream}
-	rtspPath := fmt.Sprintf("%s/%s", profile.Camera.Config.Name, profile.Stream.Path)
-	rtspURL := fmt.Sprintf("rtsp://%s:%d/%s", s.mediamtxHost, s.mediamtxPort, rtspPath)
+	// Check if custom RTSP URL is configured
+	var rtspURL string
+	if profile.Stream.RTSPURL != "" {
+		// Use custom RTSP URL from configuration
+		rtspURL = profile.Stream.RTSPURL
+		log.Printf("GetStreamUri: Using custom RTSP URL for %s: %s", profileToken, rtspURL)
+	} else {
+		// Build default RTSP URL: rtsp://{mediamtx_host}:{port}/{camera}/{stream}
+		rtspPath := fmt.Sprintf("%s/%s", profile.Camera.Config.Name, profile.Stream.Path)
+		rtspURL = fmt.Sprintf("rtsp://%s:%d/%s", s.mediamtxHost, s.mediamtxPort, rtspPath)
+		log.Printf("GetStreamUri: Using mediamtx URL for %s: %s", profileToken, rtspURL)
+	}
 
 	return &GetStreamUriResponse{
 		MediaUri: MediaUri{
@@ -177,10 +193,9 @@ func (s *Service) GetStreamUri(profileToken string) (*GetStreamUriResponse, erro
 // buildProfile builds a Profile from camera.Profile
 func (s *Service) buildProfile(p *camera.Profile) *Profile {
 	width, height := parseResolution(p.Stream.Resolution)
+	// ONVIF Profile S/T only supports JPEG, MPEG4, H264
+	// H265 is not part of the official ONVIF ver10 spec, so report as H264 for compatibility
 	encoding := "H264"
-	if p.Stream.Codec == "h265" || p.Stream.Codec == "hevc" {
-		encoding = "H265"
-	}
 
 	profile := &Profile{
 		Token: p.Stream.ProfileName,

@@ -2,6 +2,7 @@ package camera
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/config"
@@ -58,8 +59,16 @@ func (r *Registry) GetAllProfiles() []Profile {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	// Sort camera names to ensure consistent ordering
+	cameraNames := make([]string, 0, len(r.cameras))
+	for name := range r.cameras {
+		cameraNames = append(cameraNames, name)
+	}
+	sort.Strings(cameraNames)
+
 	var profiles []Profile
-	for _, cam := range r.cameras {
+	for _, name := range cameraNames {
+		cam := r.cameras[name]
 		for i := range cam.Config.Streams {
 			stream := &cam.Config.Streams[i]
 			profiles = append(profiles, Profile{

@@ -37,13 +37,23 @@ func ParseEnvelope(r io.Reader) (*Envelope, error) {
 // MarshalEnvelope marshals a SOAP envelope to XML
 func MarshalEnvelope(body interface{}) ([]byte, error) {
 	envelope := struct {
-		XMLName xml.Name    `xml:"http://www.w3.org/2003/05/soap-envelope Envelope"`
-		Xmlns   string      `xml:"xmlns:tds,attr"`
-		Body    interface{} `xml:"Body"`
+		XMLName   xml.Name `xml:"http://www.w3.org/2003/05/soap-envelope Envelope"`
+		XmlnsTds  string   `xml:"xmlns:tds,attr"`
+		XmlnsTrt  string   `xml:"xmlns:trt,attr"`
+		XmlnsTptz string   `xml:"xmlns:tptz,attr"`
+		XmlnsTimg string   `xml:"xmlns:timg,attr"`
+		XmlnsTt   string   `xml:"xmlns:tt,attr"`
+		Body      struct {
+			Content interface{} `xml:",any"`
+		} `xml:"Body"`
 	}{
-		Xmlns: "http://www.onvif.org/ver10/device/wsdl",
-		Body:  body,
+		XmlnsTds:  "http://www.onvif.org/ver10/device/wsdl",
+		XmlnsTrt:  "http://www.onvif.org/ver10/media/wsdl",
+		XmlnsTptz: "http://www.onvif.org/ver10/ptz/wsdl",
+		XmlnsTimg: "http://www.onvif.org/ver10/imaging/wsdl",
+		XmlnsTt:   "http://www.onvif.org/ver10/schema",
 	}
+	envelope.Body.Content = body
 
 	output, err := xml.MarshalIndent(envelope, "", "  ")
 	if err != nil {
@@ -78,4 +88,13 @@ func GetAction(body []byte) (string, error) {
 			}
 		}
 	}
+}
+
+// GetBodyContent extracts the content inside the SOAP Body element
+func GetBodyContent(body []byte) ([]byte, error) {
+	var env Envelope
+	if err := xml.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("failed to parse SOAP envelope: %w", err)
+	}
+	return env.Body.Content, nil
 }

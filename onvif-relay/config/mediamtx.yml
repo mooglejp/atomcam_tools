@@ -13,9 +13,11 @@ rtspTransports: [tcp]
 
 # Timeout settings (Atomcam streams can be bursty)
 readTimeout: 15m
-writeTimeout: 10s
+writeTimeout: 30s
 # Large queue for HEVC keyframes (default 512 is too small)
 writeQueueSize: 4096
+# Read buffer for handling bursty streams
+readBufferCount: 2048
 
 # Allow API access from Docker network (default restricts to 127.0.0.1 only)
 authInternalUsers:

@@ -67,22 +67,50 @@ func clamp(value, min, max float64) float64 {
 	return value
 }
 
-// CalculateAbsolutePosition calculates absolute position from relative velocity
-// This is used for ContinuousMove where velocity indicates direction/speed
-func CalculateAbsolutePosition(velocityX, velocityY float64, durationSeconds float64) (x, y float64) {
-	// For continuous move, velocity indicates direction and speed
-	// We need to calculate target position based on velocity and duration
+// VelocityToAtomCam converts ONVIF velocity to AtomCam movement parameters
+// This is used for ContinuousMove where velocity indicates direction and speed
+// ONVIF velocity: x, y ∈ [-1.0, 1.0] (negative = left/down, positive = right/up)
+// Returns: pan, tilt (target position in the direction of movement), speed
+func VelocityToAtomCam(velocityX, velocityY, velocityMagnitude float64) (pan, tilt, speed int) {
+	// Convert velocity magnitude to speed (1-9)
+	speed = int(math.Round(velocityMagnitude*8.0)) + 1
+	if speed < 1 {
+		speed = 1
+	}
+	if speed > 9 {
+		speed = 9
+	}
 
-	// Simple approach: velocity * duration gives displacement
-	// Assuming full range movement takes about 5 seconds at max speed
-	const fullRangeSeconds = 5.0
+	// Determine target position based on velocity direction
+	// Move towards the edge in the direction of the velocity
 
-	x = velocityX * (durationSeconds / fullRangeSeconds) * 2.0  // *2 because range is -1 to 1
-	y = velocityY * (durationSeconds / fullRangeSeconds) * 2.0
+	// Pan calculation (X axis)
+	if math.Abs(velocityX) > 0.01 {
+		if velocityX > 0 {
+			// Moving right: target is far right
+			pan = 355
+		} else {
+			// Moving left: target is far left
+			pan = 0
+		}
+	} else {
+		// No X movement: stay centered
+		pan = 177
+	}
 
-	// Clamp to valid range
-	x = clamp(x, -1.0, 1.0)
-	y = clamp(y, -1.0, 1.0)
+	// Tilt calculation (Y axis)
+	if math.Abs(velocityY) > 0.01 {
+		if velocityY > 0 {
+			// Moving up: target is top (ONVIF Y positive = up)
+			tilt = 0
+		} else {
+			// Moving down: target is bottom
+			tilt = 180
+		}
+	} else {
+		// No Y movement: stay centered
+		tilt = 90
+	}
 
-	return x, y
+	return pan, tilt, speed
 }

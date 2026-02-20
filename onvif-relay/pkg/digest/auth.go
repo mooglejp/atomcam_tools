@@ -56,8 +56,11 @@ func (t *Transport) Close() {
 
 // RoundTrip implements http.RoundTripper
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Clone request for the first attempt (to preserve GetBody for retry)
+	req1 := cloneRequest(req)
+
 	// Try request without auth first
-	resp, err := t.Transport.RoundTrip(req)
+	resp, err := t.Transport.RoundTrip(req1)
 	if err != nil {
 		return nil, err
 	}
@@ -194,6 +197,10 @@ func cloneRequest(req *http.Request) *http.Request {
 	req2.Header = make(http.Header, len(req.Header))
 	for k, v := range req.Header {
 		req2.Header[k] = v
+	}
+	// Clone the body using GetBody if available
+	if req.GetBody != nil {
+		req2.Body, _ = req.GetBody()
 	}
 	return req2
 }

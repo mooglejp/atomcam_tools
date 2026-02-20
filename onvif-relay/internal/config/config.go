@@ -47,6 +47,15 @@ type CameraConfig struct {
 	AudioVolume     float64           `yaml:"audio_volume,omitempty"`
 	Capabilities    CapabilitiesConfig `yaml:"capabilities"`
 	Streams         []StreamConfig    `yaml:"streams"`
+	PTZ             PTZConfig         `yaml:"ptz,omitempty"`
+}
+
+// PTZConfig represents PTZ-specific configuration
+type PTZConfig struct {
+	Home         *PTZPreset `yaml:"home,omitempty"`          // Home position
+	Presets      []PTZPreset `yaml:"presets,omitempty"`      // Presets 1-9
+	HorizontalFOV float64    `yaml:"horizontal_fov,omitempty"` // Horizontal field of view in degrees (e.g., 120.0)
+	VerticalFOV   float64    `yaml:"vertical_fov,omitempty"`   // Vertical field of view in degrees (e.g., 67.5)
 }
 
 // CapabilitiesConfig represents camera capabilities
@@ -55,12 +64,21 @@ type CapabilitiesConfig struct {
 	IR  bool `yaml:"ir"`
 }
 
+// PTZPreset represents a PTZ preset position
+type PTZPreset struct {
+	Name  string `yaml:"name"`
+	Pan   int    `yaml:"pan"`   // 0-355 degrees
+	Tilt  int    `yaml:"tilt"`  // 0-180 degrees
+	Token string `yaml:"token,omitempty"` // Optional preset token (e.g., "1", "2", etc.)
+}
+
 // StreamConfig represents a single stream configuration
 type StreamConfig struct {
 	Path        string `yaml:"path"`
 	Resolution  string `yaml:"resolution"`
 	Codec       string `yaml:"codec"`
 	ProfileName string `yaml:"profile_name"`
+	RTSPURL     string `yaml:"rtsp_url,omitempty"` // Optional: override RTSP URL (if not set, use mediamtx)
 }
 
 // LoadConfig loads configuration from a YAML file

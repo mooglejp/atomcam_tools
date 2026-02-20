@@ -13,24 +13,24 @@ type GetCapabilitiesRequest struct {
 // GetCapabilitiesResponse represents GetCapabilities response
 type GetCapabilitiesResponse struct {
 	XMLName      xml.Name     `xml:"tds:GetCapabilitiesResponse"`
-	Capabilities Capabilities `xml:"Capabilities"`
+	Capabilities Capabilities `xml:"tds:Capabilities"`
 }
 
 // Capabilities represents device capabilities
 type Capabilities struct {
-	Device  *DeviceCapabilities  `xml:"Device,omitempty"`
-	Media   *MediaCapabilities   `xml:"Media,omitempty"`
-	PTZ     *PTZCapabilities     `xml:"PTZ,omitempty"`
-	Imaging *ImagingCapabilities `xml:"Imaging,omitempty"`
+	Device  *DeviceCapabilities  `xml:"tds:Device,omitempty"`
+	Media   *MediaCapabilities   `xml:"tds:Media,omitempty"`
+	PTZ     *PTZCapabilities     `xml:"tds:PTZ,omitempty"`
+	Imaging *ImagingCapabilities `xml:"tds:Imaging,omitempty"`
 }
 
 // DeviceCapabilities represents device service capabilities
 type DeviceCapabilities struct {
-	XAddr   string                    `xml:"XAddr"`
-	Network *NetworkCapabilities      `xml:"Network,omitempty"`
-	System  *SystemCapabilities       `xml:"System,omitempty"`
-	IO      *IOCapabilities           `xml:"IO,omitempty"`
-	Security *SecurityCapabilities    `xml:"Security,omitempty"`
+	XAddr   string                    `xml:"tt:XAddr"`
+	Network *NetworkCapabilities      `xml:"tt:Network,omitempty"`
+	System  *SystemCapabilities       `xml:"tt:System,omitempty"`
+	IO      *IOCapabilities           `xml:"tt:IO,omitempty"`
+	Security *SecurityCapabilities    `xml:"tt:Security,omitempty"`
 }
 
 // NetworkCapabilities represents network capabilities
@@ -67,8 +67,8 @@ type SecurityCapabilities struct {
 
 // MediaCapabilities represents media service capabilities
 type MediaCapabilities struct {
-	XAddr            string                      `xml:"XAddr"`
-	StreamingCapabilities *StreamingCapabilities `xml:"StreamingCapabilities,omitempty"`
+	XAddr            string                      `xml:"tt:XAddr"`
+	StreamingCapabilities *StreamingCapabilities `xml:"tt:StreamingCapabilities,omitempty"`
 }
 
 // StreamingCapabilities represents streaming capabilities
@@ -80,12 +80,12 @@ type StreamingCapabilities struct {
 
 // PTZCapabilities represents PTZ service capabilities
 type PTZCapabilities struct {
-	XAddr string `xml:"XAddr"`
+	XAddr string `xml:"tt:XAddr"`
 }
 
 // ImagingCapabilities represents Imaging service capabilities
 type ImagingCapabilities struct {
-	XAddr string `xml:"XAddr"`
+	XAddr string `xml:"tt:XAddr"`
 }
 
 // GetCapabilities handles GetCapabilities request

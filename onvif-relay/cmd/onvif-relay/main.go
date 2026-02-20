@@ -141,7 +141,7 @@ func configureMediamtxPaths(cfg *config.Config, client *mediamtx.Client) error {
 			pathConfig := mediamtx.PathConfig{
 				RunOnDemand:           ffmpegCmd,
 				RunOnDemandRestart:    true,
-				RunOnDemandCloseAfter: "10s",
+				RunOnDemandCloseAfter: "60s",
 			}
 
 			// Configure path with idempotent logic

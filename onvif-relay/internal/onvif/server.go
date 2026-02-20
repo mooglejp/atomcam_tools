@@ -366,11 +366,13 @@ func (s *Server) handlePTZService(w http.ResponseWriter, r *http.Request) {
 			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
 			return
 		}
+		log.Printf("RelativeMove request body: %s", string(bodyContent))
 		var req ptz.RelativeMoveRequest
 		if err := xml.Unmarshal(bodyContent, &req); err != nil {
 			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
 			return
 		}
+		log.Printf("RelativeMove parsed: ProfileToken=%s, Translation.PanTilt=%+v", req.ProfileToken, req.Translation.PanTilt)
 		if err := s.ptzService.RelativeMove(req.ProfileToken, req.Translation, req.Speed); err != nil {
 			s.sendFault(w, soap.NewActionFailedFault(err.Error()))
 			return
@@ -567,9 +569,6 @@ func (s *Server) routeToDeviceService(w http.ResponseWriter, body []byte, action
 func (s *Server) routeToMediaService(w http.ResponseWriter, body []byte, action string) {
 	log.Printf("Routing to Media service: %s", action)
 
-	// Debug: Log GetProfiles response XML
-	debugGetProfiles := (action == "GetProfiles")
-
 	// Authentication required
 	if err := s.validateAuth(body); err != nil {
 		log.Printf("Authentication failed for %s: %v", action, err)
@@ -581,12 +580,6 @@ func (s *Server) routeToMediaService(w http.ResponseWriter, body []byte, action 
 	switch action {
 	case "GetProfiles":
 		response = s.mediaService.GetProfiles()
-		// Debug: Log response XML
-		if debugGetProfiles {
-			if debugResp, err := soap.MarshalEnvelope(response); err == nil {
-				log.Printf("GetProfiles Response XML:\n%s", string(debugResp))
-			}
-		}
 	case "GetStreamUri":
 		bodyContent, err := soap.GetBodyContent(body)
 		if err != nil {
@@ -748,11 +741,13 @@ func (s *Server) routeToPTZService(w http.ResponseWriter, body []byte, action st
 			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
 			return
 		}
+		log.Printf("RelativeMove request body: %s", string(bodyContent))
 		var req ptz.RelativeMoveRequest
 		if err := xml.Unmarshal(bodyContent, &req); err != nil {
 			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
 			return
 		}
+		log.Printf("RelativeMove parsed: ProfileToken=%s, Translation.PanTilt=%+v", req.ProfileToken, req.Translation.PanTilt)
 		if err := s.ptzService.RelativeMove(req.ProfileToken, req.Translation, req.Speed); err != nil {
 			s.sendFault(w, soap.NewActionFailedFault(err.Error()))
 			return

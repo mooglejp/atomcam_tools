@@ -3,6 +3,7 @@ package ptz
 import (
 	"encoding/xml"
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/camera"
@@ -348,18 +349,14 @@ func (s *Service) ContinuousMove(profileToken string, velocity PTZSpeed) error {
 
 	// Calculate movement delta based on velocity
 	// velocity range: -1.0 to 1.0
-	// Scale to reasonable movement: ±50 degrees per command
-	const movementScale = 50.0
+	// Scale to reasonable movement: ±5 degrees per command
+	const movementScale = 5.0
 	deltaPan := int(velocityX * movementScale)
 	deltaTilt := int(velocityY * movementScale) // Y: positive = down, negative = up
 
 	// Calculate new position
 	newPan := currentPan + deltaPan
 	newTilt := currentTilt + deltaTilt
-
-	// Debug logging
-	fmt.Printf("PTZ Move: velocity=(%.2f, %.2f), current=(%d, %d), delta=(%d, %d), new=(%d, %d)\n",
-		velocityX, velocityY, currentPan, currentTilt, deltaPan, deltaTilt, newPan, newTilt)
 
 	// Clamp to valid range
 	if newPan < 0 {
@@ -567,9 +564,64 @@ func (s *Service) AbsoluteMove(profileToken string, position PTZVector, speed *P
 	x := position.PanTilt.X
 	y := position.PanTilt.Y
 
-	// Convert ONVIF coordinates to AtomCam coordinates
-	// Use default velocity 0.5 for coordinate conversion
-	pan, tilt, defaultSpeed := ONVIFToAtomCam(x, y, 0.5)
+	// Check if FOV is configured
+	var pan, tilt int
+	if profile.Camera.Config.PTZ.HorizontalFOV > 0 && profile.Camera.Config.PTZ.VerticalFOV > 0 {
+		// Use FOV-aware conversion: treat ONVIF coordinates as positions within current view
+		// Get current position as the center of the view
+		currentPan, currentTilt := profile.Camera.GetPTZPosition()
+
+		// Check if position is uninitialized
+		const invalidPos = -9223372036854775808
+		if currentPan == invalidPos || currentTilt == invalidPos || currentPan < 0 || currentTilt < 0 {
+			// Use home position or center as default
+			if profile.Camera.Config.PTZ.Home != nil {
+				currentPan = profile.Camera.Config.PTZ.Home.Pan
+				currentTilt = profile.Camera.Config.PTZ.Home.Tilt
+			} else {
+				currentPan = 177  // Center
+				currentTilt = 90  // Center
+			}
+			profile.Camera.SetPTZPosition(currentPan, currentTilt)
+			log.Printf("PTZ AbsoluteMove: Initialized position to (%d, %d)", currentPan, currentTilt)
+		}
+
+		// Calculate offset from center based on FOV
+		// ONVIF x,y ∈ [-1.0, 1.0] represents position within the current view
+		halfHorizontalFOV := profile.Camera.Config.PTZ.HorizontalFOV / 2.0
+		halfVerticalFOV := profile.Camera.Config.PTZ.VerticalFOV / 2.0
+
+		deltaPan := int(math.Round(x * halfHorizontalFOV))
+		deltaTilt := int(math.Round((1.0 - y) * halfVerticalFOV)) - int(halfVerticalFOV)
+
+		pan = currentPan + deltaPan
+		tilt = currentTilt + deltaTilt
+
+		// Clamp to valid range
+		if pan < 0 {
+			pan = 0
+		}
+		if pan > 355 {
+			pan = 355
+		}
+		if tilt < 0 {
+			tilt = 0
+		}
+		if tilt > 180 {
+			tilt = 180
+		}
+
+		log.Printf("PTZ AbsoluteMove (FOV-aware): ONVIF=(%.2f, %.2f), current=(%d, %d), delta=(%d, %d), new AtomCam=(%d, %d)",
+			x, y, currentPan, currentTilt, deltaPan, deltaTilt, pan, tilt)
+	} else {
+		// Fallback to legacy conversion (absolute position mapping)
+		var defaultSpeed int
+		pan, tilt, defaultSpeed = ONVIFToAtomCam(x, y, 0.5)
+		_ = defaultSpeed // unused in this path
+		log.Printf("PTZ AbsoluteMove (legacy): ONVIF=(%.2f, %.2f) -> AtomCam=(%d, %d)", x, y, pan, tilt)
+	}
+
+	defaultSpeed := 5
 
 	// Override speed if provided
 	if speed != nil && speed.PanTilt != nil {
@@ -585,10 +637,6 @@ func (s *Service) AbsoluteMove(profileToken string, position PTZVector, speed *P
 			}
 		}
 	}
-
-	// Debug logging
-	fmt.Printf("PTZ AbsoluteMove: ONVIF=(%.2f, %.2f) -> AtomCam=(%d, %d), speed=%d\n",
-		x, y, pan, tilt, defaultSpeed)
 
 	// Update tracked position
 	profile.Camera.SetPTZPosition(pan, tilt)
@@ -624,32 +672,94 @@ func (s *Service) RelativeMove(profileToken string, translation PTZVector, speed
 	translationX := translation.PanTilt.X
 	translationY := translation.PanTilt.Y
 
+	// Validate translation values (reject NaN)
+	if math.IsNaN(translationX) || math.IsNaN(translationY) {
+		return fmt.Errorf("invalid translation values: x=%f, y=%f (NaN not allowed)", translationX, translationY)
+	}
+
 	// Get current position
 	currentPan, currentTilt := profile.Camera.GetPTZPosition()
 
-	// Convert current position to ONVIF coordinates
-	currentX, currentY := AtomCamToONVIF(currentPan, currentTilt)
-
-	// Add translation to current position
-	newX := currentX + translationX
-	newY := currentY + translationY
-
-	// Clamp to valid ONVIF range [-1.0, 1.0]
-	if newX < -1.0 {
-		newX = -1.0
-	}
-	if newX > 1.0 {
-		newX = 1.0
-	}
-	if newY < -1.0 {
-		newY = -1.0
-	}
-	if newY > 1.0 {
-		newY = 1.0
+	// Check if position is uninitialized (int min/max value indicates uninitialized state)
+	const invalidPos = -9223372036854775808 // math.MinInt64
+	if currentPan == invalidPos || currentTilt == invalidPos || currentPan < 0 || currentTilt < 0 {
+		// Use home position or center as default
+		if profile.Camera.Config.PTZ.Home != nil {
+			currentPan = profile.Camera.Config.PTZ.Home.Pan
+			currentTilt = profile.Camera.Config.PTZ.Home.Tilt
+		} else {
+			currentPan = 177  // Center
+			currentTilt = 90  // Center
+		}
+		// Update tracked position
+		profile.Camera.SetPTZPosition(currentPan, currentTilt)
+		log.Printf("PTZ RelativeMove: Initialized position to (%d, %d)", currentPan, currentTilt)
 	}
 
-	// Convert new ONVIF coordinates to AtomCam coordinates
-	pan, tilt, defaultSpeed := ONVIFToAtomCam(newX, newY, 0.5)
+	// Check if FOV is configured
+	var pan, tilt int
+	if profile.Camera.Config.PTZ.HorizontalFOV > 0 && profile.Camera.Config.PTZ.VerticalFOV > 0 {
+		// Use FOV-aware conversion: treat translation as position within current view
+		// Translation ∈ [-1.0, 1.0] represents offset within the field of view
+		halfHorizontalFOV := profile.Camera.Config.PTZ.HorizontalFOV / 2.0
+		halfVerticalFOV := profile.Camera.Config.PTZ.VerticalFOV / 2.0
+
+		// Calculate movement delta based on FOV
+		// translation -1.0 = far left/top of view, 0.0 = center, 1.0 = far right/bottom of view
+		deltaPan := int(math.Round(translationX * halfHorizontalFOV))
+		deltaTilt := int(math.Round(-translationY * halfVerticalFOV)) // Invert Y to match ONVIF (positive = up)
+
+		pan = currentPan + deltaPan
+		tilt = currentTilt + deltaTilt
+
+		// Clamp to valid range
+		if pan < 0 {
+			pan = 0
+		}
+		if pan > 355 {
+			pan = 355
+		}
+		if tilt < 0 {
+			tilt = 0
+		}
+		if tilt > 180 {
+			tilt = 180
+		}
+
+		log.Printf("PTZ RelativeMove (FOV-aware): current=(%d, %d), translation=(%.2f, %.2f), FOV=(%.1f°, %.1f°), delta=(%d, %d), new AtomCam=(%d, %d)",
+			currentPan, currentTilt, translationX, translationY, profile.Camera.Config.PTZ.HorizontalFOV, profile.Camera.Config.PTZ.VerticalFOV, deltaPan, deltaTilt, pan, tilt)
+	} else {
+		// Fallback to legacy conversion (ONVIF coordinate space mapping)
+		currentX, currentY := AtomCamToONVIF(currentPan, currentTilt)
+
+		// Add translation to current position
+		newX := currentX + translationX
+		newY := currentY + translationY
+
+		// Clamp to valid ONVIF range [-1.0, 1.0]
+		if newX < -1.0 {
+			newX = -1.0
+		}
+		if newX > 1.0 {
+			newX = 1.0
+		}
+		if newY < -1.0 {
+			newY = -1.0
+		}
+		if newY > 1.0 {
+			newY = 1.0
+		}
+
+		// Convert new ONVIF coordinates to AtomCam coordinates
+		var defaultSpeed int
+		pan, tilt, defaultSpeed = ONVIFToAtomCam(newX, newY, 0.5)
+		_ = defaultSpeed // unused in this path
+
+		log.Printf("PTZ RelativeMove (legacy): current=(%d, %d), ONVIF current=(%.2f, %.2f), translation=(%.2f, %.2f), new ONVIF=(%.2f, %.2f), new AtomCam=(%d, %d)",
+			currentPan, currentTilt, currentX, currentY, translationX, translationY, newX, newY, pan, tilt)
+	}
+
+	defaultSpeed := 5
 
 	// Override speed if provided
 	if speed != nil && speed.PanTilt != nil {
@@ -665,10 +775,6 @@ func (s *Service) RelativeMove(profileToken string, translation PTZVector, speed
 			}
 		}
 	}
-
-	// Debug logging
-	fmt.Printf("PTZ RelativeMove: current=(%d, %d), ONVIF current=(%.2f, %.2f), translation=(%.2f, %.2f), new ONVIF=(%.2f, %.2f), new AtomCam=(%d, %d), speed=%d\n",
-		currentPan, currentTilt, currentX, currentY, translationX, translationY, newX, newY, pan, tilt, defaultSpeed)
 
 	// Update tracked position
 	profile.Camera.SetPTZPosition(pan, tilt)
