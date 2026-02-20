@@ -78,8 +78,9 @@ func (s *ServerConfig) Validate() error {
 
 // Validate validates mediamtx configuration
 func (m *MediamtxConfig) Validate() error {
+	// Empty API means mediamtx is disabled; skip all mediamtx validation
 	if m.API == "" {
-		return fmt.Errorf("api endpoint is required")
+		return nil
 	}
 
 	if !strings.HasPrefix(m.API, "http://") && !strings.HasPrefix(m.API, "https://") {

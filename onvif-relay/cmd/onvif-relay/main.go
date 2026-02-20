@@ -47,22 +47,24 @@ func main() {
 		log.Fatalf("Failed to create camera registry: %v", err)
 	}
 
-	// Create mediamtx client
-	mtxClient := mediamtx.NewClient(cfg.Server.Mediamtx.API)
+	// Configure mediamtx if enabled (API endpoint is set)
+	if cfg.Server.Mediamtx.API != "" {
+		mtxClient := mediamtx.NewClient(cfg.Server.Mediamtx.API)
 
-	// Wait for mediamtx to be ready
-	log.Printf("Waiting for mediamtx API at %s", cfg.Server.Mediamtx.API)
-	if err := mtxClient.WaitReady(30 * time.Second); err != nil {
-		log.Fatalf("mediamtx not ready: %v", err)
-	}
-	log.Printf("mediamtx API ready")
+		log.Printf("Waiting for mediamtx API at %s", cfg.Server.Mediamtx.API)
+		if err := mtxClient.WaitReady(30 * time.Second); err != nil {
+			log.Fatalf("mediamtx not ready: %v", err)
+		}
+		log.Printf("mediamtx API ready")
 
-	// Configure all camera streams in mediamtx
-	log.Printf("Configuring mediamtx paths...")
-	if err := configureMediamtxPaths(cfg, mtxClient); err != nil {
-		log.Fatalf("Failed to configure mediamtx paths: %v", err)
+		log.Printf("Configuring mediamtx paths...")
+		if err := configureMediamtxPaths(cfg, mtxClient); err != nil {
+			log.Fatalf("Failed to configure mediamtx paths: %v", err)
+		}
+		log.Printf("All mediamtx paths configured")
+	} else {
+		log.Printf("mediamtx disabled (api not set); streams must specify rtsp_url directly")
 	}
-	log.Printf("All mediamtx paths configured")
 
 	// Start health checker
 	healthChecker := camera.NewHealthChecker(registry, 30*time.Second)

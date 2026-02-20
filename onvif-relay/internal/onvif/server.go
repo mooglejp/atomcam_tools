@@ -35,9 +35,9 @@ func NewServer(cfg *config.Config, registry *camera.Registry) *Server {
 	// Determine base URL for capabilities
 	baseURL := fmt.Sprintf("http://localhost:%d", cfg.Server.OnvifPort)
 
-	// Determine mediamtx RTSP host (use rtsp_host if specified, otherwise auto-detect)
+	// Determine mediamtx RTSP host (only relevant when mediamtx is enabled)
 	mediamtxHost := cfg.Server.Mediamtx.RTSPHost
-	if mediamtxHost == "" {
+	if mediamtxHost == "" && cfg.Server.Mediamtx.API != "" {
 		// Default to mediamtx service name in Docker network
 		mediamtxHost = "mediamtx"
 	}
