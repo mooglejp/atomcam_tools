@@ -3,8 +3,10 @@ package ptz
 import (
 	"encoding/xml"
 	"fmt"
+	"math"
 
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/camera"
+	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/config"
 )
 
 // GetNodesRequest represents GetNodes request
@@ -136,6 +138,88 @@ type StopResponse struct {
 	XMLName xml.Name `xml:"tptz:StopResponse"`
 }
 
+// GotoHomePositionRequest represents GotoHomePosition request
+type GotoHomePositionRequest struct {
+	XMLName      xml.Name `xml:"GotoHomePosition"`
+	ProfileToken string   `xml:"ProfileToken"`
+	Speed        *PTZSpeed `xml:"Speed,omitempty"`
+}
+
+// GotoHomePositionResponse represents GotoHomePosition response
+type GotoHomePositionResponse struct {
+	XMLName xml.Name `xml:"tptz:GotoHomePositionResponse"`
+}
+
+// GetPresetsRequest represents GetPresets request
+type GetPresetsRequest struct {
+	XMLName      xml.Name `xml:"GetPresets"`
+	ProfileToken string   `xml:"ProfileToken"`
+}
+
+// GetPresetsResponse represents GetPresets response
+type GetPresetsResponse struct {
+	XMLName xml.Name `xml:"tptz:GetPresetsResponse"`
+	Preset  []Preset `xml:"tptz:Preset"`
+}
+
+// Preset represents a PTZ preset
+type Preset struct {
+	Token    string        `xml:"token,attr"`
+	Name     string        `xml:"tt:Name"`
+	PTZPosition *PTZPosition `xml:"tt:PTZPosition,omitempty"`
+}
+
+// PTZPosition represents a PTZ position
+type PTZPosition struct {
+	PanTilt *Vector2D `xml:"tt:PanTilt,omitempty"`
+	Zoom    *Vector1D `xml:"tt:Zoom,omitempty"`
+}
+
+// PTZVector represents a PTZ vector (for AbsoluteMove/RelativeMove)
+type PTZVector struct {
+	PanTilt *Vector2D `xml:"PanTilt,omitempty"`
+	Zoom    *Vector1D `xml:"Zoom,omitempty"`
+}
+
+// GotoPresetRequest represents GotoPreset request
+type GotoPresetRequest struct {
+	XMLName      xml.Name `xml:"GotoPreset"`
+	ProfileToken string   `xml:"ProfileToken"`
+	PresetToken  string   `xml:"PresetToken"`
+	Speed        *PTZSpeed `xml:"Speed,omitempty"`
+}
+
+// GotoPresetResponse represents GotoPreset response
+type GotoPresetResponse struct {
+	XMLName xml.Name `xml:"tptz:GotoPresetResponse"`
+}
+
+// AbsoluteMoveRequest represents AbsoluteMove request
+type AbsoluteMoveRequest struct {
+	XMLName      xml.Name   `xml:"AbsoluteMove"`
+	ProfileToken string     `xml:"ProfileToken"`
+	Position     PTZVector  `xml:"Position"`
+	Speed        *PTZSpeed  `xml:"Speed,omitempty"`
+}
+
+// AbsoluteMoveResponse represents AbsoluteMove response
+type AbsoluteMoveResponse struct {
+	XMLName xml.Name `xml:"tptz:AbsoluteMoveResponse"`
+}
+
+// RelativeMoveRequest represents RelativeMove request
+type RelativeMoveRequest struct {
+	XMLName      xml.Name   `xml:"RelativeMove"`
+	ProfileToken string     `xml:"ProfileToken"`
+	Translation  PTZVector  `xml:"Translation"`
+	Speed        *PTZSpeed  `xml:"Speed,omitempty"`
+}
+
+// RelativeMoveResponse represents RelativeMove response
+type RelativeMoveResponse struct {
+	XMLName xml.Name `xml:"tptz:RelativeMoveResponse"`
+}
+
 // Service represents the PTZ service
 type Service struct {
 	registry *camera.Registry
@@ -163,6 +247,13 @@ func (s *Service) GetNodes() *GetNodesResponse {
 							YRange: Range{Min: -1.0, Max: 1.0},
 						},
 					},
+					RelativePanTiltTranslationSpace: []Space2D{
+						{
+							URI: "http://www.onvif.org/ver10/tptz/PanTiltSpaces/TranslationGenericSpace",
+							XRange: Range{Min: -1.0, Max: 1.0},
+							YRange: Range{Min: -1.0, Max: 1.0},
+						},
+					},
 					ContinuousPanTiltVelocitySpace: []Space2D{
 						{
 							URI: "http://www.onvif.org/ver10/tptz/PanTiltSpaces/VelocityGenericSpace",
@@ -178,7 +269,8 @@ func (s *Service) GetNodes() *GetNodesResponse {
 					},
 				},
 				MaximumNumberOfPresets: 0,
-				HomeSupported:          false,
+				HomeSupported:          true,
+				FixedHomePosition:      true,
 			},
 		},
 	}
@@ -225,6 +317,18 @@ func (s *Service) ContinuousMove(profileToken string, velocity PTZSpeed) error {
 		return fmt.Errorf("camera does not support PTZ: %s", profile.Camera.Config.Name)
 	}
 
+	// Check if this is a zoom-only operation
+	if velocity.Zoom != nil && velocity.PanTilt == nil {
+		// AtomCam doesn't support zoom, ignore zoom-only operations
+		return nil
+	}
+
+	// Check if this is a zoom operation with pan/tilt
+	if velocity.Zoom != nil && velocity.PanTilt != nil {
+		// Ignore zoom component, only process pan/tilt
+		// (AtomCam doesn't support zoom)
+	}
+
 	// Extract velocity
 	var velocityX, velocityY float64
 	if velocity.PanTilt != nil {
@@ -232,18 +336,60 @@ func (s *Service) ContinuousMove(profileToken string, velocity PTZSpeed) error {
 		velocityY = velocity.PanTilt.Y
 	}
 
-	// Convert ONVIF coordinates to AtomCam coordinates
-	// Use absolute value for velocity magnitude
-	velocityMag := velocityX*velocityX + velocityY*velocityY
+	// Calculate velocity magnitude
+	velocityMag := math.Sqrt(velocityX*velocityX + velocityY*velocityY)
 	if velocityMag < 0.01 {
 		// Velocity too small, treat as stop
 		return profile.Camera.Client.PTZStop()
 	}
 
-	pan, tilt, speed := ONVIFToAtomCam(velocityX, velocityY, 0.5)
+	// Get current position
+	currentPan, currentTilt := profile.Camera.GetPTZPosition()
+
+	// Calculate movement delta based on velocity
+	// velocity range: -1.0 to 1.0
+	// Scale to reasonable movement: ±50 degrees per command
+	const movementScale = 50.0
+	deltaPan := int(velocityX * movementScale)
+	deltaTilt := int(velocityY * movementScale) // Y: positive = down, negative = up
+
+	// Calculate new position
+	newPan := currentPan + deltaPan
+	newTilt := currentTilt + deltaTilt
+
+	// Debug logging
+	fmt.Printf("PTZ Move: velocity=(%.2f, %.2f), current=(%d, %d), delta=(%d, %d), new=(%d, %d)\n",
+		velocityX, velocityY, currentPan, currentTilt, deltaPan, deltaTilt, newPan, newTilt)
+
+	// Clamp to valid range
+	if newPan < 0 {
+		newPan = 0
+	}
+	if newPan > 355 {
+		newPan = 355
+	}
+	if newTilt < 0 {
+		newTilt = 0
+	}
+	if newTilt > 180 {
+		newTilt = 180
+	}
+
+	// Convert velocity magnitude to speed (5-9)
+	// Use higher speeds to avoid firmware issues
+	speed := int(math.Round(velocityMag*4.0)) + 5
+	if speed < 5 {
+		speed = 5
+	}
+	if speed > 9 {
+		speed = 9
+	}
+
+	// Update tracked position
+	profile.Camera.SetPTZPosition(newPan, newTilt)
 
 	// Send PTZ move command
-	return profile.Camera.Client.PTZMove(pan, tilt, speed)
+	return profile.Camera.Client.PTZMove(newPan, newTilt, speed)
 }
 
 // Stop handles Stop request
@@ -261,4 +407,272 @@ func (s *Service) Stop(profileToken string) error {
 
 	// Send PTZ stop command
 	return profile.Camera.Client.PTZStop()
+}
+
+// GotoHomePosition handles GotoHomePosition request
+func (s *Service) GotoHomePosition(profileToken string, speed *PTZSpeed) error {
+	// Get camera from profile token
+	profile, err := s.registry.GetProfileByToken(profileToken)
+	if err != nil {
+		return fmt.Errorf("profile not found: %s", profileToken)
+	}
+
+	// Check if camera supports PTZ
+	if !profile.Camera.Config.Capabilities.PTZ {
+		return fmt.Errorf("camera does not support PTZ: %s", profile.Camera.Config.Name)
+	}
+
+	// Default speed for home position
+	defaultSpeed := 5
+	if speed != nil && speed.PanTilt != nil {
+		// Convert ONVIF speed (0.0-1.0) to AtomCam speed (1-9)
+		speedMag := speed.PanTilt.X*speed.PanTilt.X + speed.PanTilt.Y*speed.PanTilt.Y
+		if speedMag > 0.01 {
+			// Use average of X and Y components
+			avgSpeed := (speed.PanTilt.X + speed.PanTilt.Y) / 2.0
+			defaultSpeed = int(avgSpeed*8) + 1 // Map 0.0-1.0 to 1-9
+			if defaultSpeed < 1 {
+				defaultSpeed = 1
+			}
+			if defaultSpeed > 9 {
+				defaultSpeed = 9
+			}
+		}
+	}
+
+	// Get home position from config, or use default
+	pan := 160
+	tilt := 130
+	if profile.Camera.Config.PTZ.Home != nil {
+		pan = profile.Camera.Config.PTZ.Home.Pan
+		tilt = profile.Camera.Config.PTZ.Home.Tilt
+	}
+
+	// Update tracked position
+	profile.Camera.SetPTZPosition(pan, tilt)
+
+	return profile.Camera.Client.PTZMove(pan, tilt, defaultSpeed)
+}
+
+// GetPresets handles GetPresets request
+func (s *Service) GetPresets(profileToken string) (*GetPresetsResponse, error) {
+	// Get camera from profile token
+	profile, err := s.registry.GetProfileByToken(profileToken)
+	if err != nil {
+		return nil, fmt.Errorf("profile not found: %s", profileToken)
+	}
+
+	// Check if camera supports PTZ
+	if !profile.Camera.Config.Capabilities.PTZ {
+		return nil, fmt.Errorf("camera does not support PTZ: %s", profile.Camera.Config.Name)
+	}
+
+	presets := []Preset{}
+
+	// Add presets from config
+	for i, preset := range profile.Camera.Config.PTZ.Presets {
+		token := preset.Token
+		if token == "" {
+			token = fmt.Sprintf("%d", i+1) // Default to 1-based index
+		}
+
+		presets = append(presets, Preset{
+			Token: token,
+			Name:  preset.Name,
+		})
+	}
+
+	return &GetPresetsResponse{
+		Preset: presets,
+	}, nil
+}
+
+// GotoPreset handles GotoPreset request
+func (s *Service) GotoPreset(profileToken, presetToken string, speed *PTZSpeed) error {
+	// Get camera from profile token
+	profile, err := s.registry.GetProfileByToken(profileToken)
+	if err != nil {
+		return fmt.Errorf("profile not found: %s", profileToken)
+	}
+
+	// Check if camera supports PTZ
+	if !profile.Camera.Config.Capabilities.PTZ {
+		return fmt.Errorf("camera does not support PTZ: %s", profile.Camera.Config.Name)
+	}
+
+	// Find preset in config
+	var preset *config.PTZPreset
+	for i := range profile.Camera.Config.PTZ.Presets {
+		p := &profile.Camera.Config.PTZ.Presets[i]
+		token := p.Token
+		if token == "" {
+			token = fmt.Sprintf("%d", i+1)
+		}
+		if token == presetToken {
+			preset = p
+			break
+		}
+	}
+
+	if preset == nil {
+		return fmt.Errorf("preset not found: %s", presetToken)
+	}
+
+	// Default speed
+	defaultSpeed := 5
+	if speed != nil && speed.PanTilt != nil {
+		speedMag := speed.PanTilt.X*speed.PanTilt.X + speed.PanTilt.Y*speed.PanTilt.Y
+		if speedMag > 0.01 {
+			avgSpeed := (speed.PanTilt.X + speed.PanTilt.Y) / 2.0
+			defaultSpeed = int(avgSpeed*8) + 1
+			if defaultSpeed < 1 {
+				defaultSpeed = 1
+			}
+			if defaultSpeed > 9 {
+				defaultSpeed = 9
+			}
+		}
+	}
+
+	// Update tracked position
+	profile.Camera.SetPTZPosition(preset.Pan, preset.Tilt)
+
+	return profile.Camera.Client.PTZMove(preset.Pan, preset.Tilt, defaultSpeed)
+}
+
+// AbsoluteMove handles AbsoluteMove request
+func (s *Service) AbsoluteMove(profileToken string, position PTZVector, speed *PTZSpeed) error {
+	// Get camera from profile token
+	profile, err := s.registry.GetProfileByToken(profileToken)
+	if err != nil {
+		return fmt.Errorf("profile not found: %s", profileToken)
+	}
+
+	// Check if camera supports PTZ
+	if !profile.Camera.Config.Capabilities.PTZ {
+		return fmt.Errorf("camera does not support PTZ: %s", profile.Camera.Config.Name)
+	}
+
+	// Check if this is a zoom-only operation
+	if position.Zoom != nil && position.PanTilt == nil {
+		// AtomCam doesn't support zoom, ignore zoom-only operations
+		return nil
+	}
+
+	// Extract position coordinates
+	if position.PanTilt == nil {
+		return fmt.Errorf("pan/tilt position required for AbsoluteMove")
+	}
+
+	x := position.PanTilt.X
+	y := position.PanTilt.Y
+
+	// Convert ONVIF coordinates to AtomCam coordinates
+	// Use default velocity 0.5 for coordinate conversion
+	pan, tilt, defaultSpeed := ONVIFToAtomCam(x, y, 0.5)
+
+	// Override speed if provided
+	if speed != nil && speed.PanTilt != nil {
+		speedMag := math.Sqrt(speed.PanTilt.X*speed.PanTilt.X + speed.PanTilt.Y*speed.PanTilt.Y)
+		if speedMag > 0.01 {
+			// Convert ONVIF speed (0.0-1.0) to AtomCam speed (5-9)
+			defaultSpeed = int(math.Round(speedMag*4.0)) + 5
+			if defaultSpeed < 5 {
+				defaultSpeed = 5
+			}
+			if defaultSpeed > 9 {
+				defaultSpeed = 9
+			}
+		}
+	}
+
+	// Debug logging
+	fmt.Printf("PTZ AbsoluteMove: ONVIF=(%.2f, %.2f) -> AtomCam=(%d, %d), speed=%d\n",
+		x, y, pan, tilt, defaultSpeed)
+
+	// Update tracked position
+	profile.Camera.SetPTZPosition(pan, tilt)
+
+	// Send PTZ move command
+	return profile.Camera.Client.PTZMove(pan, tilt, defaultSpeed)
+}
+
+// RelativeMove handles RelativeMove request
+func (s *Service) RelativeMove(profileToken string, translation PTZVector, speed *PTZSpeed) error {
+	// Get camera from profile token
+	profile, err := s.registry.GetProfileByToken(profileToken)
+	if err != nil {
+		return fmt.Errorf("profile not found: %s", profileToken)
+	}
+
+	// Check if camera supports PTZ
+	if !profile.Camera.Config.Capabilities.PTZ {
+		return fmt.Errorf("camera does not support PTZ: %s", profile.Camera.Config.Name)
+	}
+
+	// Check if this is a zoom-only operation
+	if translation.Zoom != nil && translation.PanTilt == nil {
+		// AtomCam doesn't support zoom, ignore zoom-only operations
+		return nil
+	}
+
+	// Extract translation vector
+	if translation.PanTilt == nil {
+		return fmt.Errorf("pan/tilt translation required for RelativeMove")
+	}
+
+	translationX := translation.PanTilt.X
+	translationY := translation.PanTilt.Y
+
+	// Get current position
+	currentPan, currentTilt := profile.Camera.GetPTZPosition()
+
+	// Convert current position to ONVIF coordinates
+	currentX, currentY := AtomCamToONVIF(currentPan, currentTilt)
+
+	// Add translation to current position
+	newX := currentX + translationX
+	newY := currentY + translationY
+
+	// Clamp to valid ONVIF range [-1.0, 1.0]
+	if newX < -1.0 {
+		newX = -1.0
+	}
+	if newX > 1.0 {
+		newX = 1.0
+	}
+	if newY < -1.0 {
+		newY = -1.0
+	}
+	if newY > 1.0 {
+		newY = 1.0
+	}
+
+	// Convert new ONVIF coordinates to AtomCam coordinates
+	pan, tilt, defaultSpeed := ONVIFToAtomCam(newX, newY, 0.5)
+
+	// Override speed if provided
+	if speed != nil && speed.PanTilt != nil {
+		speedMag := math.Sqrt(speed.PanTilt.X*speed.PanTilt.X + speed.PanTilt.Y*speed.PanTilt.Y)
+		if speedMag > 0.01 {
+			// Convert ONVIF speed (0.0-1.0) to AtomCam speed (5-9)
+			defaultSpeed = int(math.Round(speedMag*4.0)) + 5
+			if defaultSpeed < 5 {
+				defaultSpeed = 5
+			}
+			if defaultSpeed > 9 {
+				defaultSpeed = 9
+			}
+		}
+	}
+
+	// Debug logging
+	fmt.Printf("PTZ RelativeMove: current=(%d, %d), ONVIF current=(%.2f, %.2f), translation=(%.2f, %.2f), new ONVIF=(%.2f, %.2f), new AtomCam=(%d, %d), speed=%d\n",
+		currentPan, currentTilt, currentX, currentY, translationX, translationY, newX, newY, pan, tilt, defaultSpeed)
+
+	// Update tracked position
+	profile.Camera.SetPTZPosition(pan, tilt)
+
+	// Send PTZ move command
+	return profile.Camera.Client.PTZMove(pan, tilt, defaultSpeed)
 }
