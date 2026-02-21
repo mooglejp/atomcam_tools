@@ -16,6 +16,7 @@ import (
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/onvif/media"
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/onvif/ptz"
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/onvif/soap"
+	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/proxy"
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/snapshot"
 )
 
@@ -68,6 +69,17 @@ func NewServer(cfg *config.Config, registry *camera.Registry) *Server {
 	// Snapshot endpoint with authentication
 	snapshotProxy := snapshot.NewProxy(registry, cfg.Server.Auth.Username, cfg.Server.Auth.Password)
 	mux.HandleFunc("/snapshot/", snapshotProxy.Handler())
+
+	// Reverse proxy rules from config
+	for _, pc := range cfg.Server.Proxies {
+		h, err := proxy.New(pc.Path, pc.Target, pc.StripPrefix)
+		if err != nil {
+			log.Printf("WARNING: skipping proxy rule %s → %s: %v", pc.Path, pc.Target, err)
+			continue
+		}
+		mux.Handle(pc.Path, h)
+		log.Printf("Reverse proxy: %s → %s (strip_prefix=%v)", pc.Path, pc.Target, pc.StripPrefix)
+	}
 
 	s.httpServer = &http.Server{
 		Addr:           fmt.Sprintf(":%d", cfg.Server.OnvifPort),

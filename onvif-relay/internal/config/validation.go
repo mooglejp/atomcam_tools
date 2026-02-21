@@ -41,6 +41,9 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// reservedPaths are paths used internally by the ONVIF server
+var reservedPaths = []string{"/onvif/", "/snapshot/"}
+
 // Validate validates server configuration
 func (s *ServerConfig) Validate() error {
 	if s.OnvifPort <= 0 || s.OnvifPort > 65535 {
@@ -73,6 +76,39 @@ func (s *ServerConfig) Validate() error {
 		return fmt.Errorf("mediamtx: %w", err)
 	}
 
+	proxyPaths := make(map[string]bool)
+	for i, p := range s.Proxies {
+		if err := p.Validate(); err != nil {
+			return fmt.Errorf("proxies[%d]: %w", i, err)
+		}
+		if proxyPaths[p.Path] {
+			return fmt.Errorf("proxies[%d]: duplicate path: %s", i, p.Path)
+		}
+		proxyPaths[p.Path] = true
+	}
+
+	return nil
+}
+
+// Validate validates a single proxy rule
+func (p *ProxyConfig) Validate() error {
+	if p.Path == "" {
+		return fmt.Errorf("path is required")
+	}
+	if !strings.HasPrefix(p.Path, "/") {
+		return fmt.Errorf("path must start with /: %s", p.Path)
+	}
+	for _, reserved := range reservedPaths {
+		if strings.HasPrefix(p.Path, reserved) {
+			return fmt.Errorf("path conflicts with reserved ONVIF path %s", reserved)
+		}
+	}
+	if p.Target == "" {
+		return fmt.Errorf("target is required")
+	}
+	if !strings.HasPrefix(p.Target, "http://") && !strings.HasPrefix(p.Target, "https://") {
+		return fmt.Errorf("target must start with http:// or https://: %s", p.Target)
+	}
 	return nil
 }
 

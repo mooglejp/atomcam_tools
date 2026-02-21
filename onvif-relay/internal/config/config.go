@@ -20,6 +20,14 @@ type ServerConfig struct {
 	Discovery  bool           `yaml:"discovery"`
 	Auth       AuthConfig     `yaml:"auth"`
 	Mediamtx   MediamtxConfig `yaml:"mediamtx"`
+	Proxies    []ProxyConfig  `yaml:"proxies,omitempty"`
+}
+
+// ProxyConfig represents a single reverse proxy rule
+type ProxyConfig struct {
+	Path        string `yaml:"path"`         // URL path prefix handled by this proxy (e.g. "/api/")
+	Target      string `yaml:"target"`       // Backend base URL (e.g. "http://192.168.1.100:9000")
+	StripPrefix bool   `yaml:"strip_prefix"` // Strip path prefix before forwarding (default: false)
 }
 
 // AuthConfig represents authentication credentials
