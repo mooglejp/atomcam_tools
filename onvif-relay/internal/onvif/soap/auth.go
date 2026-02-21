@@ -54,11 +54,11 @@ type Password struct {
 	Value string `xml:",chardata"`
 }
 
-// ValidateUsernameToken validates WS-UsernameToken authentication
-func ValidateUsernameToken(header []byte, expectedUsername, expectedPassword string) error {
-	var security Security
-	if err := xml.Unmarshal(header, &security); err != nil {
-		return fmt.Errorf("failed to parse security header: %w", err)
+// ValidateUsernameToken validates WS-UsernameToken authentication.
+// security must be parsed from the full SOAP envelope to preserve namespace context.
+func ValidateUsernameToken(security *Security, expectedUsername, expectedPassword string) error {
+	if security == nil {
+		return fmt.Errorf("missing security header")
 	}
 
 	// Extract username and password

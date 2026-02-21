@@ -808,12 +808,12 @@ func (s *Server) validateAuth(body []byte) error {
 		return fmt.Errorf("failed to parse SOAP envelope: %w", err)
 	}
 
-	if envelope.Header == nil || len(envelope.Header.Content) == 0 {
+	if envelope.Header == nil {
 		return fmt.Errorf("missing security header")
 	}
 
 	return soap.ValidateUsernameToken(
-		envelope.Header.Content,
+		envelope.Header.Security,
 		s.config.Server.Auth.Username,
 		s.config.Server.Auth.Password,
 	)

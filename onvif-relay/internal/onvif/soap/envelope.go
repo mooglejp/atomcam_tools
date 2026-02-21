@@ -16,7 +16,7 @@ type Envelope struct {
 
 // Header represents a SOAP header
 type Header struct {
-	Content []byte `xml:",innerxml"`
+	Security *Security `xml:"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd Security"`
 }
 
 // Body represents a SOAP body
