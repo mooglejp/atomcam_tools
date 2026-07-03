@@ -17,6 +17,8 @@
 #define WEB_CMD_FIFO "/var/run/webcmd"
 #define WEB_RES_FIFO "/var/run/webres"
 #define USER_CONFIG "/atom/configs/.user_config"
+#define TOOLS_RELEASE_LATEST_URL "https://github.com/mooglejp/atomcam_tools/releases/latest"
+#define TOOLS_RELEASE_DOWNLOAD_URL "https://github.com/mooglejp/atomcam_tools/releases/download/%s/atomcam_tools.zip"
 
 static void trim(char *s) {
   size_t n = strlen(s);
@@ -256,10 +258,10 @@ static void start_update_child(void) {
 
   if(strcmp(custom_zip, "off") == 0 || zip_url[0] == '\0') {
     char latest[512];
-    read_first_line("curl -w \"%{redirect_url}\" -s -o /dev/null https://github.com/mnakada/atomcam_tools/releases/latest", latest, sizeof(latest));
+    read_first_line("curl -w \"%{redirect_url}\" -s -o /dev/null " TOOLS_RELEASE_LATEST_URL, latest, sizeof(latest));
     char *tag = strstr(latest, "tag/");
     if(tag) {
-      snprintf(zip_url, sizeof(zip_url), "https://github.com/mnakada/atomcam_tools/releases/download/%s/atomcam_tools.zip", tag + 4);
+      snprintf(zip_url, sizeof(zip_url), TOOLS_RELEASE_DOWNLOAD_URL, tag + 4);
     }
   }
 

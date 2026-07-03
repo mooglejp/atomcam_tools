@@ -21,7 +21,7 @@
             <option value="en">English</option>
           </select>
         </div>
-        <a href="https://github.com/mnakada/atomcam_tools#atomcam_tools" target="_blank" rel="noopener">
+        <a href="https://github.com/mooglejp/atomcam_tools#atomcam_tools" target="_blank" rel="noopener">
           <i class="el-icon-info help" />
         </a>
       </div>
@@ -299,7 +299,7 @@
             </span>
           </SettingDangerButton>
           <SettingSwitch i18n="update.customZip" v-model="config.CUSTOM_ZIP" />
-          <SettingInput v-if="config.CUSTOM_ZIP === 'on'" i18n="update.customZip.URL" :titleOffset="2" :span="10" type="text" v-model="config.CUSTOM_ZIP_URL" placeholder="https://github.com/mnakada/atomcam_tools/releases/latest/download/atomcam_tools.zip" />
+          <SettingInput v-if="config.CUSTOM_ZIP === 'on'" i18n="update.customZip.URL" :titleOffset="2" :span="10" type="text" v-model="config.CUSTOM_ZIP_URL" placeholder="https://github.com/mooglejp/atomcam_tools/releases/download/ci-latest/atomcam_tools.zip" />
 
           <h3 v-t="'reboot.title'" />
           <SettingSwitch i18n="reboot.periodicRestart" v-model="config.REBOOT" />
@@ -755,7 +755,7 @@
         return s;
       }, {});
 
-      this.latestVer = status.LATESTVER;
+      if(status.LATESTVER) this.latestVer = status.LATESTVER;
       if(status.MEDIASIZE) {
         const ms = status.MEDIASIZE.split(' ');
         this.mediaSize = ms[1];
@@ -945,6 +945,10 @@
         }, 1500);
       },
       async GetLatestVer() {
+        if(this.config.CUSTOM_ZIP === 'on') {
+          this.latestVer = '';
+          return;
+        }
         const status = (await axios.get('./cgi-bin/cmd.cgi?name=latest-ver').catch(err => {
           // eslint-disable-next-line no-console
           console.log('axios.get ./cgi-bin/cmd.cgi', err);
