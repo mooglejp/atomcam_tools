@@ -1,0 +1,92 @@
+name: Build firmware
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Start build container
+        run: docker compose up -d
+
+      - name: Build firmware
+        run: docker compose exec -T builder /src/buildscripts/build_all
+
+      - name: Prepare artifacts
+        run: |
+          test -s atomcam_tools.zip
+          mkdir -p artifacts
+          cp atomcam_tools.zip artifacts/atomcam_tools.zip
+          sha256sum artifacts/atomcam_tools.zip > artifacts/SHA256SUMS
+          ls -lh artifacts
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: atomcam_tools-${{ github.sha }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-22.04
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download firmware artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: atomcam_tools-${{ github.sha }}
+          path: artifacts
+
+      - name: Publish release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            release_tag="${GITHUB_REF_NAME}"
+            release_title="${GITHUB_REF_NAME}"
+            prerelease_flag=""
+          else
+            release_tag="ci-latest"
+            release_title="Latest CI build"
+            prerelease_flag="--prerelease"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -f "${release_tag}" "${GITHUB_SHA}"
+            git push -f origin "refs/tags/${release_tag}"
+          fi
+
+          if ! gh release view "${release_tag}" >/dev/null 2>&1; then
+            gh release create "${release_tag}" \
+              --title "${release_title}" \
+              --notes "Built from ${GITHUB_SHA}." \
+              ${prerelease_flag}
+          fi
+
+          gh release upload "${release_tag}" artifacts/atomcam_tools.zip artifacts/SHA256SUMS --clobber

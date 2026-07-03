@@ -11,7 +11,6 @@ module.exports = (env, argv) => {
       bundle: [
         './source/js/index.js',
         './source/css/dirindex.css',
-        './source/webrtc.html',
       ],
     },
     output: {
@@ -45,13 +44,6 @@ module.exports = (env, argv) => {
           type: 'asset/resource',
           generator: {
             filename: 'fonts/[name][ext]',
-          },
-        },
-        {
-          test: /webrtc.html$/,
-          type: 'asset/resource',
-          generator: {
-            filename: '[name][ext]',
           },
         },
       ],

@@ -185,9 +185,6 @@ media:
   tab: メディア設定
 SDCardSettings:
   title: SD-Card設定
-  smbAccess:
-    title: smbアクセス
-    tooltip: SD-CardをCIFS(smb) serverとしてLAN内に公開します
   directWrite:
     title: 録画を直接記録
     tooltip: 通常は一旦RAM-DISKに録画した後SD-Cardにコピーしますが、RAMの節約のため直接SD-Cardに記録します
@@ -222,9 +219,6 @@ RTSP:
         - PCM
         - AAC
         - OPUS
-    note:
-      comment: |
-        RTMPを使うにはAACかoffを選択してください。
     URL:
       title: URL
       tooltip: VLC playerなどにURLをcopy&pasteしてください
@@ -268,38 +262,6 @@ RTSP:
   password:
     title: パスワード
     tooltip: RTSPのパスワードを設定します
-
-HomeKit:
-  title: HomeKit
-  tooltip: RTSP Mainをonにする必要があります
-  unpair:
-    title: 強制接続解除
-    tooltip: HomeKitの接続を強制的に解除します
-  note:
-    comment: |
-      音声を出すにはRTSP Mainの音声をOPUSに設定してください。
-
-RTMP:
-  title: RTMP
-  tooltip: RTSP Mainをonにして音声をAACかoffにする必要があります
-  URL:
-    title: URL
-    tooltip: 送信先のURLを設定してください
-  Restart: restart
-  IntervalRestart:
-    title: 周期リスタート
-    unit: 分
-    tooltip: 定期的にRTMPを再スタートします
-
-WebRTC:
-  title: WebRTC
-  tooltip: RTSP Mainをonにする必要があります
-  URL:
-    title: URL
-    tooltip: ブラウザーにURLをcopy&pasteしてください
-  note:
-    comment: |
-      音声を出すにはRTSP Mainの音声をOPUSに設定してください。
 
 event:
   tab: イベント通知

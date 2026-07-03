@@ -30,7 +30,7 @@ if [ "$1" = "finish" ] ; then
       STORAGE="${STORAGE}, \"sdcardFile\":\"${2##*media/mmc/}\""
     else
       [ "$CIFS_ERROR" = "" ] && rm $2
-      find /media/mmc/time_lapse -depth -type d -empty -delete
+      find /media/mmc/time_lapse -depth -type d -exec rmdir {} + 2>/dev/null
     fi
     if [ "$WEBHOOK_URL" != "" ] && [ "$WEBHOOK_TIMELAPSE_FINISH" = "on" ]; then
       /usr/bin/curl -X POST -m 3 -H "Content-Type: application/json" -d "{\"type\":\"timelapseFinish\", \"device\":\"${HOSTNAME}\"${STORAGE}}" $INSECURE_FLAG $WEBHOOK_URL > /dev/null 2>&1

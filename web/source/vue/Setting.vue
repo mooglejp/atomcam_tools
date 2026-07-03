@@ -210,7 +210,6 @@
         <!-- Media Setting Tab -->
         <ElTabPane name="media" class="well-transparent container" :label="$t('media.tab')">
           <h3 v-t="'SDCardSettings.title'" />
-          <SettingSwitch i18n="SDCardSettings.smbAccess" v-model="config.STORAGE_SDCARD_PUBLISH" />
           <SettingSwitch i18n="SDCardSettings.directWrite" v-model="config.STORAGE_SDCARD_DIRECT_WRITE" />
           <SettingDangerButton i18n="SDCardSettings.eraseSDCard" icon="el-icon-folder-delete" @click="DoErase" />
 
@@ -225,7 +224,6 @@
           <h3 v-t="'RTSP.title'" />
           <SettingSwitch i18n="RTSP.main" v-model="config.RTSP_VIDEO0" />
           <SettingSelect v-if="config.RTSP_VIDEO0 === 'on'" i18n="RTSP.main.audio" :titleOffset="2" v-model="config.RTSP_AUDIO0" :label="['off', 'S16_BE', 'AAC', 'OPUS']" />
-          <SettingComment v-if="config.RTSP_VIDEO0 === 'on' && (config.RTSP_AUDIO0 !== 'AAC' && config.RTSP_AUDIO0 !=='off') && config.RTMP_ENABLE === 'on'" i18n="RTSP.main.note" color="red" weight="bold" />
           <SettingInput v-if="config.RTSP_VIDEO0 === 'on'" i18n="RTSP.main.URL" :titleOffset="2" :span="10" type="readonly" v-model="RtspUrl0" />
           <div v-if="distributor === 'ATOM'">
             <SettingSwitch i18n="RTSP.mainHEVC" v-model="config.RTSP_VIDEO2" />
@@ -240,46 +238,6 @@
             <SettingSwitch i18n="RTSP.auth" v-model="config.RTSP_AUTH" />
             <SettingInput v-if="config.RTSP_AUTH === 'on'" i18n="RTSP.account" type="text" :titleOffset="2" v-model="config.RTSP_USER" />
             <SettingInput v-if="config.RTSP_AUTH === 'on'" i18n="RTSP.password" type="password" :titleOffset="2" v-model="config.RTSP_PASSWD" show-password />
-          </div>
-
-          <h3 v-t="'HomeKit.title'" />
-          <SettingSwitch i18n="HomeKit" :value="(config.RTSP_VIDEO0 == 'on') ? config.HOMEKIT_ENABLE : 'off'" @input="config.HOMEKIT_ENABLE=$event" :disabled="config.RTSP_VIDEO0 !== 'on'" />
-          <SettingComment v-if="config.RTSP_VIDEO0 === 'on' && config.RTSP_AUDIO0 !== 'OPUS' && config.RTSP_AUDIO0 !== 'off' && config.HOMEKIT_ENABLE === 'on'" i18n="HomeKit.note" color="red" weight="bold" />
-          <div v-if="homeKitSetupURI !== '' && homekitPairing !== '' && config.RTSP_VIDEO0 === 'on' && config.HOMEKIT_ENABLE === 'on'">
-            <SettingDangerButton v-if="homeKitPairing == 'paired'" i18n="HomeKit.unpair" button="Unpair" icon="el-icon-scissors" :titleOffset="2" @click="UnpairHomeKit" />
-            <ElRow v-else>
-              <ElCol :offset="9" :span="10">
-                <div class="homekit">
-                  <QrcodeVue class="homekit-qrcode" :value="homeKitSetupURI" size="150" />
-                  <div class="homekit-setupcode">
-                    {{ homeKitSetupCode }}
-                  </div>
-                </div>
-              </ElCol>
-            </ElRow>
-            <ElRow>
-              <ElCol :offset="9" :span="10">
-                <h4 class="homekit-deviceid">
-                  DeviceID : {{ config.HOMEKIT_DEVICE_ID }}
-                </h4>
-              </ElCol>
-            </ElRow>
-          </div>
-
-          <h3 v-t="'RTMP.title'" />
-          <SettingSwitch i18n="RTMP" :value="(config.RTSP_VIDEO0 == 'on' && (config.RTSP_AUDIO0 == 'AAC' || config.RTSP_AUDIO0 == 'off')) ? config.RTMP_ENABLE : 'off'" @input="config.RTMP_ENABLE=$event" :disabled="config.RTSP_VIDEO0 !== 'on' || (config.RTSP_AUDIO0 !== 'AAC' && config.RTSP_AUDIO0 !== 'off')" />
-          <SettingInput v-if="config.RTMP_ENABLE === 'on'" i18n="RTMP.URL" :titleOffset="2" :span="8" v-model="config.RTMP_URL" placeholder="rtmp://<server addr>/<livekey>" :disabled="config.RTSP_VIDEO0 !== 'on' || (config.RTSP_AUDIO0 !== 'AAC' && config.RTSP_AUDIO0 !== 'off')">
-            <ElButton @click="RTMPRestart" type="primary" v-t="'RTMP.Restart'" :disabled="config.RTSP_VIDEO0 !== 'on' || (config.RTSP_AUDIO0 !== 'AAC' && config.RTSP_AUDIO0 !== 'off')" />
-          </SettingInput>
-          <SettingInputNumber v-if="config.RTMP_ENABLE === 'on' && config.RTSP_VIDEO0 == 'on' && (config.RTSP_AUDIO0 == 'AAC' || config.RTSP_AUDIO0 == 'off')" i18n="RTMP.IntervalRestart" :withSwitch="true" :defaultValue="240" :span="10" v-model="config.RTMP_RESTART" :min="20" :max="2880" :step="20" />
-
-          <h3 v-t="'WebRTC.title'" />
-          <SettingSwitch i18n="WebRTC" :value="(config.RTSP_VIDEO0 == 'on') ? config.WEBRTC_ENABLE : 'off'" @input="config.WEBRTC_ENABLE=$event" :disabled="config.RTSP_VIDEO0 !== 'on'" />
-          <SettingComment v-if="config.RTSP_VIDEO0 === 'on' && config.RTSP_AUDIO0 !== 'OPUS' && config.RTSP_AUDIO0 !== 'off' && config.WEBRTC_ENABLE === 'on'" i18n="WebRTC.note" color="red" weight="bold" />
-          <div v-if="(config.WEBRTC_ENABLE === 'on') && (oldConfig.WEBRTC_ENABLE === 'on')">
-            <SettingInput i18n="WebRTC.URL" :titleOffset="2" :span="8" type="readonly" v-model="WebRTCUrl">
-              <a :href="WebRTCUrl" target="_blank" class="el-button el-button--primary el-button--mini link-button">Link</a>
-            </SettingInput>
           </div>
         </ElTabPane>
 
@@ -399,7 +357,6 @@
   import SettingProgress from './SettingProgress.vue';
   import SettingCruise from './SettingCruise.vue';
   import SettingSlider from './SettingSlider.vue';
-  import QrcodeVue from 'qrcode.vue';
 
   import 'element-ui/lib/theme-chalk/drawer.css';
   import 'element-ui/lib/theme-chalk/slider.css';
@@ -428,7 +385,6 @@
       SettingProgress,
       SettingCruise,
       SettingSlider,
-      QrcodeVue,
     },
     data() {
       return {
@@ -576,9 +532,6 @@
           busy: false,
           abort: false,
         },
-        homeKitPairing: '',
-        homeKitSetupURI: '',
-        homeKitSetupCode: '',
         rtspRestart: false,
         cruiseList: [],
         cruiseSelect: -1,
@@ -658,10 +611,6 @@
         const auth = (this.config.RTSP_AUTH === 'on') && (this.config.RTSP_USER !== '') && (this.config.RTSP_PASSWD !== '') ? `${this.config.RTSP_USER}:${this.config.RTSP_PASSWD}@` : '';
         return `rtsp://${auth}${window.location.host}:${port}/video2_unicast`;
       },
-      WebRTCUrl() {
-        const opt = this.config.RTSP_AUDIO0 === 'OPUS' ? '?media=video+audio' : '';
-        return `http://${window.location.host}/webrtc.html${opt}`;
-      },
       motionAreaSVG() {
         return {
           sx: this.motionArea.sx * this.motionArea.scaleX + 5,
@@ -716,20 +665,6 @@
       if(this.config.DIGEST.length) {
         this.loginAuth = 'on';
         this.account = this.config.DIGEST.replace(/:.*$/, '');
-      }
-
-      if(!this.config.HOMEKIT_SETUP_ID.length) {
-        let sid = '';
-        for(let i = 0; i < 4; i++) {
-          sid += String.fromCharCode(Math.floor(Math.random() * 26) + 0x41);
-        }
-        this.config.HOMEKIT_SETUP_ID = sid;
-      }
-      if(!this.config.HOMEKIT_PIN.length) {
-        this.config.HOMEKIT_PIN = Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
-      }
-      if(!this.config.HOMEKIT_DEVICE_ID.length) {
-        this.config.HOMEKIT_DEVICE_ID = this.config.HWADDR;
       }
 
       for(let schedule of ['periodicRec', 'alarmRec']) {
@@ -914,7 +849,6 @@
         }
       }, 1000);
       this.StillImageInterval();
-      this.CheckHomeKit();
       window.addEventListener('resize', this.ResizeEvent.bind(this));
     },
     methods: {
@@ -969,10 +903,6 @@
           this.$set(this.motionArea, 'dy', dy);
         }
         this.MotionArea();
-      },
-      RTMPRestart() {
-        this.rtspRestart = true;
-        this.Submit();
       },
       CenterMark() {
         const mode = this.centerMark ? 'off' : 'on';
@@ -1035,56 +965,6 @@
             console.log('axios.post ./cgi-bin/video_isp.cgi', err);
           });
         }, 1500);
-      },
-      async CheckHomeKit() {
-        if((this.oldConfig.HOMEKIT_ENABLE !== 'on') || (this.config.HOMEKIT_ENABLE !== 'on')) return;
-
-        const localhost = window.location.origin;
-        const pairingInfo = (await axios.get(`${localhost}:1984/api/homekit/pairing`).catch(err => {
-          // eslint-disable-next-line no-console
-          console.log(`${localhost}:1984/api/homekit/pairing: ${err.message}`);
-          return null;
-        }))?.data;
-        if((this.homeKitSetupURI !== pairingInfo?.video0?.SetupURI) ||
-           (this.homeKitSetupCode !== pairingInfo?.video0?.Pin) ||
-           (this.homeKitPairing !== pairingInfo?.video0?.Status)) {
-          // eslint-disable-next-line no-console
-          console.log('pairingInfo : ', pairingInfo);
-        }
-        if(pairingInfo?.video0) {
-          this.homeKitPairing = pairingInfo?.video0?.Status ?? '';
-          if((pairingInfo?.video0?.SetupURI ?? '').indexOf('X-HM://') === 0) {
-            if(this.homeKitSetupURI === '') this.KickHomeKit();
-            this.homeKitSetupURI = pairingInfo?.video0?.SetupURI;
-            this.homeKitSetupCode = pairingInfo?.video0?.Pin;
-          }
-        }
-        if(this.homeKitPairing === '' || this.homeKitSetupURI === '') {
-          setTimeout(this.CheckHomeKit, 1000);
-        } else {
-          setTimeout(this.CheckHomeKit, 5000);
-        }
-      },
-      async UnpairHomeKit() {
-        const localhost = window.location.origin;
-        await axios.delete(`${localhost}:1984/api/homekit/pairing?stream=video0`).catch(err => {
-          // eslint-disable-next-line no-console
-          console.log(`delete ${localhost}:1984/api/homekit/pairing?stream=video0`, err);
-          return '';
-        });
-        this.homeKitPairing = '';
-        this.homeKitSetupURI = '';
-        this.KickHomeKit();
-        this.CheckHomeKit();
-      },
-      async KickHomeKit() {
-        if((this.oldConfig.HOMEKIT_ENABLE !== 'on') || (this.config.HOMEKIT_ENABLE !== 'on')) return;
-        const localhost = window.location.origin;
-        await axios.get(`${localhost}:1984/api/homekit`).catch(err => {
-          // eslint-disable-next-line no-console
-          console.log(`${localhost}:1984/api/homekit`, err);
-          return '';
-        });
       },
       async GetLatestVer() {
         const status = (await axios.get('./cgi-bin/cmd.cgi?name=latest-ver').catch(err => {
@@ -1292,7 +1172,7 @@
           this.$set(this.config, confKey, str);
         }
 
-        if(this.config.PERIODICREC_SDCARD !== 'on' && this.config.ALARMREC_SDCARD !== 'on' && this.config.TIMELAPSE_SDCARD !== 'on') this.config.STORAGE_SDCARD_PUBLISH = 'off';
+        this.config.STORAGE_SDCARD_PUBLISH = 'off';
 
         this.config.LOCALE = this.$i18n.locale;
         this.config.TIMELAPSE_SCHEDULE = this.timelapseSchedule.reduce((str, schedule) => {
@@ -1318,16 +1198,14 @@
           parseInt(this.reboot.startTime.slice(0, 2)) + ' * * ' +
           this.reboot.dayOfWeekSelect.sort((a, b) => a - b).reduce((v, d) => v + (v.length ? ':' : '') + ((d + 1) % 7).toString(), '');
 
-        if(this.config.RTSP_VIDEO0 === 'off') {
-          this.config.HOMEKIT_ENABLE = 'off';
-          this.config.RTMP_ENABLE = 'off';
-          this.config.WEBRTC_ENABLE = 'off';
-        }
+        this.config.HOMEKIT_ENABLE = 'off';
+        this.config.RTMP_ENABLE = 'off';
+        this.config.WEBRTC_ENABLE = 'off';
         if(this.distributor !== 'ATOM') {
           this.config.RTSP_VIDEO2 = 'off';
           this.config.RTSP_AUDIO2 = 'off';
         }
-        this.config.HOMEKIT_SOURCE = this.RtspUrl0.replace(/^rtsp:\/\/.*:/, 'rtsp://localhost:');
+        this.config.HOMEKIT_SOURCE = '';
 
         await axios.post('./cgi-bin/hack_ini.cgi', this.config).catch(err => {
           // eslint-disable-next-line no-console
@@ -1421,10 +1299,6 @@
              (this.config.RTSP_AUTH !== this.oldConfig.RTSP_AUTH) ||
              (this.config.RTSP_USER !== this.oldConfig.RTSP_USER) ||
              (this.config.RTSP_PASSWD !== this.oldConfig.RTSP_PASSWD) ||
-             (this.config.HOMEKIT_ENABLE !== this.oldConfig.HOMEKIT_ENABLE) ||
-             (this.config.RTMP_ENABLE !== this.oldConfig.RTMP_ENABLE) ||
-             (this.config.RTMP_URL !== this.oldConfig.RTMP_URL) ||
-             (this.config.WEBRTC_ENABLE !== this.oldConfig.WEBRTC_ENABLE) ||
              (this.config.RTSP_VIDEO0 !== this.oldConfig.RTSP_VIDEO0) ||
              (this.config.RTSP_VIDEO1 !== this.oldConfig.RTSP_VIDEO1) ||
              (this.config.RTSP_VIDEO2 !== this.oldConfig.RTSP_VIDEO2) ||
@@ -1464,7 +1338,6 @@
             if(href) window.location.href = href;
           });
         }
-        this.CheckHomeKit();
       },
       async Exec(cmd, port) {
         return await axios.post(`./cgi-bin/cmd.cgi?port=${port}`, { exec: cmd }).catch(err => {

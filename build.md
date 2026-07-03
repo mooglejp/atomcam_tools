@@ -193,7 +193,7 @@ v4l2rtspserverをオン/オフします。
 
 ## `/scripts/samba.sh`
 
-設定に従って**Sambaの起動／終了をする**スクリプトです。
+Sambaを含まない軽量ビルドではno-opです。
 
 ## `/scripts/set_crontab.sh`
 

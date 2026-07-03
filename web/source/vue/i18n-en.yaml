@@ -188,9 +188,6 @@ SDCardSettings:
   webAccess:
     title: Web Access
     tooltip: Show SD Card contents
-  smbAccess:
-    title: smb Access
-    tooltip: Broadcast SD-Card CIFS(smb) server on local network
   directWrite:
     title: Direct Recording
     tooltip: Normally, the recording is made once on the RAM-DISK and then copied to the SD-Card, but to save RAM, the recording is made directly on the SD-Card.
@@ -221,9 +218,6 @@ RTSP:
         - PCM
         - AAC
         - OPUS
-    note:
-      comment: |
-        To use RTMP, you must choose AAC.
     URL:
       title: URL
       tooltip: Copy and paste this URL into VLC etc.
@@ -267,38 +261,6 @@ RTSP:
   password:
     title: Password
     tooltip: set RTSP password
-
-HomeKit:
-  title: HomeKit
-  tooltip: RTSP Main must be on.
-  unpair:
-    title: Force Unpairing
-    tooltip: Force HomeKit unpairing.
-  note:
-    comment: |
-      To output audio, the RTSP Main audio must be set to OPUS.
-
-RTMP:
-  title: RTMP
-  tooltip: RTSP Main must be on and audio must be set to AAC.
-  URL:
-    title: URL
-    tooltip: Set the destination URL.
-  Restart: restart
-  IntervalRestart:
-    title: Interval Restart
-    unit: minutes
-    tooltip: Restart the RTMP periodically.
-
-WebRTC:
-  title: WebRTC
-  tooltip: RTSP Main must be on.
-  URL:
-    title: URL
-    tooltip: Copy and paste this URL into browser.
-  note:
-    comment: |
-      To output audio, the RTSP Main audio must be set to OPUS.
 
 event:
   tab: Notification
