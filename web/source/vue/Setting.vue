@@ -144,13 +144,7 @@
             <SettingSwitch i18n="record.SDCard.automaticDeletion" :titleOffset="2" v-model="config.PERIODICREC_SDCARD_REMOVE" />
             <SettingInputNumber v-if="config.PERIODICREC_SDCARD_REMOVE === 'on'" i18n="record.SDCard.daysToKeep" :titleOffset="2" :span="3" v-model="config.PERIODICREC_SDCARD_REMOVE_DAYS" :min="1" />
           </div>
-          <SettingSwitch i18n="record.NAS" v-model="config.PERIODICREC_CIFS" />
-          <div v-if="config.PERIODICREC_CIFS === 'on'">
-            <SettingInput i18n="record.NAS.savePath" :titleOffset="2" :span="10" type="text" v-model="config.PERIODICREC_CIFS_PATH" @input="FixPath('PERIODICREC_CIFS_PATH')" />
-            <SettingSwitch i18n="record.NAS.automaticDeletion" :titleOffset="2" v-model="config.PERIODICREC_CIFS_REMOVE" />
-            <SettingInputNumber v-if="config.PERIODICREC_CIFS_REMOVE === 'on'" i18n="record.NAS.daysToKeep" :titleOffset="2" :span="3" v-model="config.PERIODICREC_CIFS_REMOVE_DAYS" :min="1" />
-          </div>
-          <div v-if="config.PERIODICREC_SDCARD === 'on' || config.PERIODICREC_CIFS === 'on'">
+          <div v-if="config.PERIODICREC_SDCARD === 'on'">
             <SettingComment v-if="property.recordType === 'off'" i18n="record.recordTypeWarn" color="red" weight="bold" />
             <SettingSwitch i18n="record.recordingSchedule" v-model="config.PERIODICREC_SCHEDULE" @change="(config.PERIODICREC_SCHEDULE === 'on') && !periodicRecSchedule.length && AddSchedule('periodicRecSchedule')" />
             <div v-if="config.PERIODICREC_SCHEDULE === 'on'">
@@ -166,13 +160,7 @@
             <SettingSwitch i18n="record.SDCard.automaticDeletion" :titleOffset="2" v-model="config.ALARMREC_SDCARD_REMOVE" />
             <SettingInputNumber v-if="config.ALARMREC_SDCARD_REMOVE === 'on'" i18n="record.SDCard.daysToKeep" :titleOffset="2" :span="3" v-model="config.ALARMREC_SDCARD_REMOVE_DAYS" :min="1" />
           </div>
-          <SettingSwitch i18n="record.NAS" v-model="config.ALARMREC_CIFS" />
-          <div v-if="config.ALARMREC_CIFS === 'on'">
-            <SettingInput i18n="record.NAS.savePath" :titleOffset="2" :span="10" type="text" v-model="config.ALARMREC_CIFS_PATH" @input="FixPath('ALARMREC_CIFS_PATH')" />
-            <SettingSwitch i18n="record.NAS.automaticDeletion" :titleOffset="2" v-model="config.ALARMREC_CIFS_REMOVE" />
-            <SettingInputNumber v-if="config.ALARMREC_CIFS_REMOVE === 'on'" i18n="record.NAS.daysToKeep" :titleOffset="2" :span="3" v-model="config.ALARMREC_CIFS_REMOVE_DAYS" :min="1" />
-          </div>
-          <div v-if="config.ALARMREC_SDCARD === 'on' || config.ALARMREC_CIFS === 'on'">
+          <div v-if="config.ALARMREC_SDCARD === 'on'">
             <SettingComment v-if="(property.motionDet === 'off') && (property.soundDet === 'off') && (property.cautionDet === 'off')" i18n="record.alarmRecWarn" color="red" weight="bold" />
             <SettingSwitch i18n="record.recordingSchedule" v-model="config.ALARMREC_SCHEDULE" @change="(config.ALARMREC_SCHEDULE === 'on') && !alarmRecSchedule.length && AddSchedule('alarmRecSchedule')" />
             <div v-if="config.ALARMREC_SCHEDULE === 'on'">
@@ -190,13 +178,7 @@
             <SettingSwitch i18n="record.SDCard.automaticDeletion" :titleOffset="2" v-model="config.TIMELAPSE_SDCARD_REMOVE" />
             <SettingInputNumber v-if="config.TIMELAPSE_SDCARD_REMOVE === 'on'" i18n="record.SDCard.daysToKeep" :titleOffset="2" :span="3" v-model="config.TIMELAPSE_SDCARD_REMOVE_DAYS" :min="1" />
           </div>
-          <SettingSwitch i18n="record.NAS" v-model="config.TIMELAPSE_CIFS" />
-          <div v-if="config.TIMELAPSE_CIFS === 'on'">
-            <SettingInput i18n="record.NAS.savePath" :titleOffset="2" :span="10" type="text" v-model="config.TIMELAPSE_CIFS_PATH" @input="FixPath('TIMELAPSE_CIFS_PATH')" />
-            <SettingSwitch i18n="record.NAS.automaticDeletion" :titleOffset="2" v-model="config.TIMELAPSE_CIFS_REMOVE" />
-            <SettingInputNumber v-if="config.TIMELAPSE_CIFS_REMOVE === 'on'" i18n="record.NAS.daysToKeep" :titleOffset="2" :span="3" v-model="config.TIMELAPSE_CIFS_REMOVE_DAYS" :min="1" />
-          </div>
-          <div v-if="config.TIMELAPSE_SDCARD === 'on' || config.TIMELAPSE_CIFS === 'on'">
+          <div v-if="config.TIMELAPSE_SDCARD === 'on'">
             <SettingSchedule v-for="(timeTable, idx) of timelapseSchedule" :key="'timetable'+idx" :timelapse="true" :removeSchedule="timelapseSchedule.length > 1" :i18n="idx?'':'timelapse.setting'" v-model="timelapseSchedule[idx]" @add="AddTimelapseSchedule()" @remove="DeleteTimelapseSchedule(idx)" />
             <SettingComment i18n="timelapse.note" />
             <SettingInputNumber i18n="timelapse.fps" :span="3" v-model="config.TIMELAPSE_FPS" :min="1" :max="60" />
@@ -212,11 +194,6 @@
           <h3 v-t="'SDCardSettings.title'" />
           <SettingSwitch i18n="SDCardSettings.directWrite" v-model="config.STORAGE_SDCARD_DIRECT_WRITE" />
           <SettingDangerButton i18n="SDCardSettings.eraseSDCard" icon="el-icon-folder-delete" @click="DoErase" />
-
-          <h3 v-t="'NASSettings.title'" />
-          <SettingInput i18n="NASSettings.networkPath" :span="10" type="text" v-model="config.STORAGE_CIFSSERVER" @input="FixPath('STORAGE_CIFSSERVER')" />
-          <SettingInput i18n="NASSettings.account" type="text" v-model="config.STORAGE_CIFSUSER" />
-          <SettingInput i18n="NASSettings.password" type="password" v-model="config.STORAGE_CIFSPASSWD" show-password />
         </ElTabPane>
 
         <!-- Streaming Setting Tab -->
@@ -577,9 +554,6 @@
       },
       storage_sdcard() {
         return this.storage_sdcard_record || this.storage_sdcard_alarm;
-      },
-      storage_cifs() {
-        return this.storage_cifs_record || this.storage_cifs_alarm;
       },
       updatable() {
         if(this.config.CUSTOM_ZIP === 'on' && this.config.CUSTOM_ZIP_URL !== '') return true;
@@ -1177,6 +1151,15 @@
         }
 
         this.config.STORAGE_SDCARD_PUBLISH = 'off';
+        this.config.PERIODICREC_CIFS = 'off';
+        this.config.PERIODICREC_CIFS_REMOVE = 'off';
+        this.config.ALARMREC_CIFS = 'off';
+        this.config.ALARMREC_CIFS_REMOVE = 'off';
+        this.config.TIMELAPSE_CIFS = 'off';
+        this.config.TIMELAPSE_CIFS_REMOVE = 'off';
+        this.config.STORAGE_CIFSSERVER = '';
+        this.config.STORAGE_CIFSUSER = '';
+        this.config.STORAGE_CIFSPASSWD = '';
 
         this.config.LOCALE = this.$i18n.locale;
         this.config.TIMELAPSE_SCHEDULE = this.timelapseSchedule.reduce((str, schedule) => {
@@ -1294,9 +1277,6 @@
             (this.config.RTSP_VIDEO2 !== this.oldConfig.RTSP_VIDEO2)) &&
            (this.config.RTSP_VIDEO0 === 'off') && (this.config.RTSP_VIDEO1 === 'off') && (this.config.RTSP_VIDEO2 === 'off')) {
           execCmds.push('rtspserver off');
-        }
-        if(this.config.STORAGE_SDCARD_PUBLISH !== this.oldConfig.STORAGE_SDCARD_PUBLISH) {
-          execCmds.push(`samba ${this.config.STORAGE_SDCARD_PUBLISH}`);
         }
         if((this.config.RTSP_VIDEO0 === 'on') || (this.config.RTSP_VIDEO1 === 'on') || (this.config.RTSP_VIDEO2 === 'on')) {
           if((this.config.RTSP_OVER_HTTP !== this.oldConfig.RTSP_OVER_HTTP) ||

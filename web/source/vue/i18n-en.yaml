@@ -132,18 +132,6 @@ record:
     daysToKeep:
       title: Number of Days to Keep
       tooltip: Indicate the number of days to keep
-  NAS:
-    title: NAS Recording
-    tooltip: Record to NAS(CIFS Server)
-    savePath:
-      title: Save PATH
-      tooltip: enter the storage PATH after the network name in strftime format ending with the file extension.
-    automaticDeletion:
-      title: Automatic Recording Deletion
-      tooltip: Automatically delete recordings from the CIFS Server
-    daysToKeep:
-      title: Number of Days to Keep
-      tooltip: Indicate the number of days to keep
   recordType:
     comment: |
       Set the Record mode in the Camera settings to Continuous or Motion. If it is Off, no video will be recorded.
@@ -152,7 +140,7 @@ record:
       Turn on Motion alarm, Sound alarm, or Fire/CO alarm detection in the Camera settings. If all are turned off, no video will be recorded.
   recordingSchedule:
     title: Recording Schedule
-    tooltip: SD-Card/NAS Recording Time Window
+    tooltip: SD-Card Recording Time Window
     text:
       - Schedule
       - Constant Recoring
@@ -191,18 +179,6 @@ SDCardSettings:
   directWrite:
     title: Direct Recording
     tooltip: Normally, the recording is made once on the RAM-DISK and then copied to the SD-Card, but to save RAM, the recording is made directly on the SD-Card.
-
-NASSettings:
-  title: NAS setting
-  networkPath:
-    title: Network PATH
-    tooltip: enter the path of NAS Server (use //server/folder/ format)
-  account:
-    title: Account
-    tooltip: Set NAS username
-  password:
-    title: Password
-    tooltip: set NAS password
 
 RTSP:
   tab: Streaming
@@ -362,7 +338,7 @@ deviceSettings:
   title: Device Settings
   deviceName:
     title: Display Name
-    tooltip: NAS Folder Name and Hostname for remote access
+    tooltip: Hostname for remote access
   loginAuthentication:
     title: Login Authentication
     tooltip: Require Authentication to Login

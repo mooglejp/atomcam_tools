@@ -399,13 +399,6 @@ static void handle_line(char *line) {
     }
     return;
   }
-  if(strcmp(cmd, "samba") == 0 && params[0]) {
-    char command[256];
-    snprintf(command, sizeof(command), "/scripts/samba.sh %s", params);
-    run_system(command);
-    respond("%s %s OK", cmd, params);
-    return;
-  }
   if(strcmp(cmd, "sderase") == 0) {
     run_system("busybox rm -rf /media/mmc/record /media/mmc/alarm_record /media/mmc/time_lapse");
     respond("%s %s OK", cmd, params);

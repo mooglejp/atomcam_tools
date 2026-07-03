@@ -41,9 +41,9 @@ if [ "$CONFIG_VER" = "" ] ; then
   }
 
   /^STORAGE_CIFS *=/ {
-    printf("PERIODICREC_CIFS=%s\n", ($2 == "on" || $2 == "record") ? "on" : "off");
-    printf("ALARMREC_CIFS=%s\n", ($2 == "on" || $2 == "alarm") ? "on" : "off");
-    printf("TIMELAPSE_CIFS=%s\n", ((TIMELAPSE == "on") && ($2 == "on" || $2 == "record" || $2 == "alarm")) ? "on" : "off");
+    printf("PERIODICREC_CIFS=off\n");
+    printf("ALARMREC_CIFS=off\n");
+    printf("TIMELAPSE_CIFS=off\n");
     next;
   }
 
@@ -54,9 +54,9 @@ if [ "$CONFIG_VER" = "" ] ; then
   }
 
   /^STORAGE_CIFS_REMOVE *=/ {
-    printf("PERIODICREC_CIFS_REMOVE=%s\n", $2);
-    printf("ALARMREC_CIFS_REMOVE=%s\n", $2);
-    printf("TIMELAPSE_CIFS_REMOVE=%s\n", $2);
+    printf("PERIODICREC_CIFS_REMOVE=off\n");
+    printf("ALARMREC_CIFS_REMOVE=off\n");
+    printf("TIMELAPSE_CIFS_REMOVE=off\n");
     next;
   }
 

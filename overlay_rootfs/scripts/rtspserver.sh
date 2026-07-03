@@ -14,7 +14,15 @@ get_ini() {
 cmd_log() {
   res=`/scripts/cmd "$@" 2>&1`
   rc=$?
-  log "cmd $* => rc=$rc res=$res"
+  if [ $rc -ne 0 ]; then
+    log "cmd $* failed: rc=$rc res=$res"
+    return $rc
+  fi
+  case "$res" in
+    ""|*error*|*timeout*|*connect*|*write*|*read*|*select*)
+      log "cmd $* unexpected: rc=$rc res=$res"
+    ;;
+  esac
   return $rc
 }
 

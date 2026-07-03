@@ -43,8 +43,5 @@ END {
   if(ENV["RTSP_VIDEO0"] == "on" || ENV["RTSP_VIDEO1"] == "on" || ENV["RTSP_VIDEO2"] == "on") {
     printf("* * * * * /scripts/rtspserver.sh watchdog >> /media/mmc/atomhack.log\n");
   }
-  if(ENV["PERIODICREC_CIFS"] == "on" || ENV["ALARMREC_CIFS"] == "on" || ENV["TIMELAPSE_CIFS"] == "on") {
-    printf("*/2 * * * * /atom_patch/system_bin/mount_cifs.sh watchdog >> /media/mmc/atomhack.log\n");
-  }
 }
 ' $HACK_INI | crontab -
