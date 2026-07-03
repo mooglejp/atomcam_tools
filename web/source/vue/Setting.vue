@@ -557,19 +557,7 @@
       },
       updatable() {
         if(this.config.CUSTOM_ZIP === 'on' && this.config.CUSTOM_ZIP_URL !== '') return true;
-        const ver = (this.config.ATOMHACKVER || '').replace(/[a-zA-Z]+/, '.').split('.');
-        const latest = (this.latestVer || '').replace(/[a-zA-Z]+/, '.').split('.');
-        if(ver.length < 3) return false;
-        if(latest.length < 3) return false;
-        if(parseInt(ver[0]) < parseInt(latest[0])) return true;
-        if(parseInt(ver[0]) > parseInt(latest[0])) return false;
-        if(parseInt(ver[1]) < parseInt(latest[1])) return true;
-        if(parseInt(ver[1]) > parseInt(latest[1])) return false;
-        if(parseInt(ver[2]) < parseInt(latest[2])) return true;
-        if(parseInt(ver[2]) > parseInt(latest[2])) return false;
-        if(ver.length > 3) return true;
-        if(latest.length > 3) return true;
-        return false;
+        return this.CompareVersions(this.config.ATOMHACKVER, this.latestVer) < 0;
       },
       isSwing() {
         return !this.drawerVisible && (this.config.PRODUCT_MODEL === 'ATOM_CAKP1JZJP');
@@ -943,6 +931,21 @@
             console.log('axios.post ./cgi-bin/video_isp.cgi', err);
           });
         }, 1500);
+      },
+      VersionParts(version) {
+        const match = `${version || ''}`.trim().match(/^(?:Ver\.|v)?(\d+)\.(\d+)\.(\d+)(?:(?:[.+-](?:moogle|custom)\.?|\.)(\d+))?/i);
+        if(!match) return null;
+        return [1, 2, 3, 4].map(i => parseInt(match[i] || '0'));
+      },
+      CompareVersions(current, latest) {
+        const currentParts = this.VersionParts(current);
+        const latestParts = this.VersionParts(latest);
+        if(!currentParts || !latestParts) return 0;
+        for(let i = 0; i < currentParts.length; i++) {
+          if(currentParts[i] < latestParts[i]) return -1;
+          if(currentParts[i] > latestParts[i]) return 1;
+        }
+        return 0;
       },
       async GetLatestVer() {
         if(this.config.CUSTOM_ZIP === 'on') {

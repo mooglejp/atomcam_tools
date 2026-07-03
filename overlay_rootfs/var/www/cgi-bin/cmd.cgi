@@ -8,7 +8,11 @@ if [ "$REQUEST_METHOD" = "GET" ]; then
   NAME=${QUERY_STRING##name=}
   if [ "$NAME" = "latest-ver" ] ; then
     latest=`curl -w "%{redirect_url}" -s -o /dev/null https://github.com/mooglejp/atomcam_tools/releases/latest`
-    echo LATESTVER=${latest##*Ver.}
+    tag=${latest##*/tag/}
+    tag=${tag##Ver.}
+    tag=${tag##v}
+    [ "$tag" = "$latest" ] && tag=
+    echo LATESTVER=$tag
   fi
   if [ "$NAME" = "" -o "$NAME" = "status" ] ; then
     echo TIMELAPSE=`/scripts/cmd timelapse`
