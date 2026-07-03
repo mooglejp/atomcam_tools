@@ -34,6 +34,9 @@ sync
 [ ! -f /media/mmc/app.ver ] && /system/bin/ver-comp
 [ -f /media/mmc/app.ver ] && cp /media/mmc/app.ver /configs/app.ver
 
+ATOMAPP_LOG=/dev/null
+[ -p /var/run/atomapp ] && ATOMAPP_LOG=/var/run/atomapp
+
 /sbin/syslogd -C2048 -n -S &
 count=0
 while :
@@ -46,4 +49,4 @@ done
 /system/bin/assis >> $ASSIS_LOG 2>&1 &
 /system/bin/hl_client >> /dev/null 2>&1 &
 /system/bin/sinker >> /dev/null 2>&1 &
-LD_PRELOAD=/tmp/system/lib/modules/libcallback.so /system/bin/iCamera >> /var/run/atomapp 2>> /$TOOLS_LOG &
+LD_PRELOAD=/tmp/system/lib/modules/libcallback.so /system/bin/iCamera >> $ATOMAPP_LOG 2>> /$TOOLS_LOG &

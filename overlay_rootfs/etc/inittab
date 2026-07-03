@@ -16,8 +16,8 @@
 # now run any rc scripts
 ::sysinit:/etc/init.d/rcS
 
-# Put a getty on the serial port
-ttyS1::respawn:/sbin/getty -L ttyS1 115200 vt100 # GENERIC_SERIAL
+# Serial getty is disabled to avoid an otherwise unused resident process.
+#ttyS1::respawn:/sbin/getty -L ttyS1 115200 vt100 # GENERIC_SERIAL
 
 # Stuff to do before rebooting
 ::shutdown:/etc/init.d/rcK

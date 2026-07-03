@@ -3,15 +3,47 @@
 # Start webhook for atomcam
 #
 
+need_atomhookd() {
+    HACK_INI=/tmp/hack.ini
+    PRODUCT_CONFIG=/atom/configs/.product_config
+
+    [ -f /media/mmc/atom-log ] && return 0
+    [ -f /media/mmc/timelapse_hook.sh ] && return 0
+    [ "$(awk -F "=" '/^PRODUCT_MODEL *=/ {print $2}' $PRODUCT_CONFIG 2>/dev/null)" = "ATOM_CAKP1JZJP" ] && return 0
+
+    awk -F "=" '
+    {
+      key = $1;
+      gsub(/[ \t]/, "", key);
+      val = $2;
+      gsub(/^[ \t]*/, "", val);
+      ENV[key] = val;
+    }
+    END {
+      exit !(
+        ENV["WEBHOOK_ALARM_EVENT"] == "on" ||
+        ENV["WEBHOOK_ALARM_INFO"] == "on" ||
+        ENV["WEBHOOK_TIMELAPSE_EVENT"] == "on" ||
+        ENV["WEBHOOK_TIMELAPSE_FINISH"] == "on" ||
+        ENV["TIMELAPSE_SDCARD"] == "on"
+      );
+    }
+    ' $HACK_INI
+}
+
 case "$1" in
   start)
-    [ -p /var/run/atomapp ] || mkfifo /var/run/atomapp
-    /usr/bin/atomhookd &
+    rm -f /var/run/atomapp
+    if need_atomhookd ; then
+      mkfifo /var/run/atomapp
+      /usr/bin/atomhookd &
+    fi
     /usr/bin/atomrecpostd &
   ;;
   stop)
     killall atomhookd > /dev/null 2>&1
     killall atomrecpostd > /dev/null 2>&1
+    rm -f /var/run/atomapp
   ;;
   restart|reload)
     $0 stop

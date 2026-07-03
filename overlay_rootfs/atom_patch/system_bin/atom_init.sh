@@ -28,8 +28,11 @@ insmod /system/driver/speaker_ctl.ko
 
 [ -f /media/mmc/atom-debug ] && exit 0
 
+ATOMAPP_LOG=/dev/null
+[ -p /var/run/atomapp ] && ATOMAPP_LOG=/var/run/atomapp
+
 /system/bin/ver-comp
 /system/bin/assis >> $ASSIS_LOG 2>&1 &
 /system/bin/hl_client >> /dev/null 2>&1 &
-LD_PRELOAD=/tmp/system/lib/modules/libcallback.so /system/bin/iCamera_app >> /var/run/atomapp 2>> /$TOOLS_LOG &
+LD_PRELOAD=/tmp/system/lib/modules/libcallback.so /system/bin/iCamera_app >> $ATOMAPP_LOG 2>> /$TOOLS_LOG &
 [ "AC1" = "$PRODUCT_MODEL" -o "ATOM_CamV3C" = "$PRODUCT_MODEL" ] && /system/bin/dongle_app >> /dev/null &
