@@ -301,6 +301,13 @@ event:
       title: 定常録画保存
       tooltip: 録画保存を通知します
       comment: 'type: recordEvent'
+    recordingUpload:
+      title: 定常録画POST
+      tooltip: 定常録画のmp4をQuickTime形式に変換してPOSTします
+      comment: 'Content-Type: video/quicktime'
+    recordingUploadURL:
+      title: POST先URL
+      tooltip: 未指定の場合は通知URLを使います
     startTimelapse:
       title: タイムラプス開始
       tooltip: タイムラプス開始を通知します

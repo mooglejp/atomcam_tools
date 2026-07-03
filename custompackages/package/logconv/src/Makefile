@@ -2,7 +2,7 @@
 
 CC = ${TARGET_CROSS}gcc
 STRIP = $(TARGET_CROSS)strip
-TARGETS = logconv atomcmd atomwebcmd atomhookd
+TARGETS = logconv atomcmd atomwebcmd atomhookd atomrecpostd
 
 CFLAGS = $(INCLUDES) -std=gnu99 -O2 -Wall -march=mips32r2
 
@@ -21,6 +21,10 @@ atomwebcmd: atomwebcmd.c
 	${STRIP} $@
 
 atomhookd: atomhookd.c
+	${CC} ${CFLAGS} -o $@ $^
+	${STRIP} $@
+
+atomrecpostd: atomrecpostd.c
 	${CC} ${CFLAGS} -o $@ $^
 	${STRIP} $@
 

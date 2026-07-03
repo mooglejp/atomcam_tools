@@ -7,9 +7,11 @@ case "$1" in
   start)
     [ -p /var/run/atomapp ] || mkfifo /var/run/atomapp
     /usr/bin/atomhookd &
+    /usr/bin/atomrecpostd &
   ;;
   stop)
     killall atomhookd > /dev/null 2>&1
+    killall atomrecpostd > /dev/null 2>&1
   ;;
   restart|reload)
     $0 stop

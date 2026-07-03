@@ -253,6 +253,8 @@
           <SettingSwitch i18n="event.webhook.screenshotEnd" v-model="config.WEBHOOK_ALARM_PICT_FINISH" />
           <SettingSwitch i18n="event.webhook.screenshotTransfer" v-model="config.WEBHOOK_ALERM_PICT" />
           <SettingSwitch i18n="event.webhook.recordingSave" v-model="config.WEBHOOK_RECORD_EVENT" />
+          <SettingSwitch i18n="event.webhook.recordingUpload" v-model="config.WEBHOOK_RECORD_UPLOAD" />
+          <SettingInput v-if="config.WEBHOOK_RECORD_UPLOAD === 'on'" i18n="event.webhook.recordingUploadURL" :titleOffset="2" :span="10" type="text" v-model="config.WEBHOOK_RECORD_UPLOAD_URL" />
           <SettingSwitch i18n="event.webhook.startTimelapse" v-model="config.WEBHOOK_TIMELAPSE_START" />
           <SettingSwitch i18n="event.webhook.recordTimelapse" v-model="config.WEBHOOK_TIMELAPSE_EVENT" />
           <SettingSwitch i18n="event.webhook.endTimeLapse" v-model="config.WEBHOOK_TIMELAPSE_FINISH" />
@@ -461,6 +463,8 @@
           WEBHOOK_ALARM_PICT_FINISH: 'off',
           WEBHOOK_ALERM_PICT: 'off',
           WEBHOOK_RECORD_EVENT: 'off',
+          WEBHOOK_RECORD_UPLOAD: 'off',
+          WEBHOOK_RECORD_UPLOAD_URL: '',
           WEBHOOK_TIMELAPSE_START: 'off',
           WEBHOOK_TIMELAPSE_EVENT: 'off',
           WEBHOOK_TIMELAPSE_FINISH: 'off',

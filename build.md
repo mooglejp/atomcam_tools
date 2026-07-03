@@ -207,11 +207,17 @@ Sambaを含まない軽量ビルドではno-opです。
 
 タイムラプスの開始処理、終了時のファイル処理のスクリプトです。
 
-## `/scripts/webcmd.sh`
+## `/usr/bin/atomwebcmd`
 
 `/var/www/cgi-bin/exec.cgi`から名前付きFIFO経由でコマンドを実行します。
 
 CGIの実行は`www-data`アカウントでの実行なのでシステム制御系のコマンドは直接実行できないため、コマンドを受けて実行して問題ないものだけ実行する構造にしています。
+
+## `/usr/bin/atomrecpostd`
+
+`WEBHOOK_RECORD_EVENT`または`WEBHOOK_RECORD_UPLOAD`が有効な場合、`/media/mmc/record`をinotifyで監視します。
+
+録画mp4が完成したら、JSONの`recordEvent`通知、または`ffmpeg`によるQuickTime形式への変換とHTTP POSTを行います。`inotifywait`やshell pipelineを常駐させずに定常録画のPOST連携を行うための軽量daemonです。
 
 ## `/scripts/webhook.sh`
 

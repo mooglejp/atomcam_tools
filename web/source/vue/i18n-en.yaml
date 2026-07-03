@@ -302,6 +302,13 @@ event:
       title: Regular Recording Save
       tooltip: Notify on regular recording
       comment: 'type: recordEvent'
+    recordingUpload:
+      title: Regular Recording POST
+      tooltip: Convert regular mp4 recordings to QuickTime and POST them
+      comment: 'Content-Type: video/quicktime'
+    recordingUploadURL:
+      title: POST URL
+      tooltip: Uses the notification URL when left blank
     startTimelapse:
       title: Start Time lapse
       tooltip: Notify on time lapse start

@@ -313,7 +313,7 @@ static void handle_line(char *line) {
     return;
   }
   if(strcmp(cmd, "setwebhook") == 0) {
-    run_system("killall atomhookd >/dev/null 2>&1; /usr/bin/atomhookd &");
+    run_system("killall atomhookd >/dev/null 2>&1; killall atomrecpostd >/dev/null 2>&1; /usr/bin/atomhookd & /usr/bin/atomrecpostd &");
     respond("%s %s OK", cmd, params);
     return;
   }
