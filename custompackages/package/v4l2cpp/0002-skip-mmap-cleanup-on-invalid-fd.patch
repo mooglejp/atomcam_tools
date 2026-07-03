@@ -1,0 +1,16 @@
+diff --git a/src/V4l2MmapDevice.cpp b/src/V4l2MmapDevice.cpp
+index 4d3f1ad..f4d2f8a 100644
+--- a/src/V4l2MmapDevice.cpp
++++ b/src/V4l2MmapDevice.cpp
+@@ -139,6 +139,11 @@ bool V4l2MmapDevice::stop()
+ 	LOG(INFO) << "Device " << m_params.m_devName;
+ 
+ 	bool success = true;
++	if (m_fd < 0)
++	{
++		n_buffers = 0;
++		return success;
++	}
+ 	
+ 	int type = m_deviceType;
+ 	if (-1 == ioctl(m_fd, VIDIOC_STREAMOFF, &type))
