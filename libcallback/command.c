@@ -14,6 +14,8 @@
 
 static const unsigned short CommandPort = 4000;
 static int SelfPipe[2];
+static char *CommandInput[FD_SETSIZE];
+static size_t CommandInputLen[FD_SETSIZE];
 
 extern char *JpegCapture(int fd, char *tokenPtr);
 extern char *VideoCommand(int fd, char *tokenPtr);
@@ -63,6 +65,18 @@ struct CommandTableSt CommandTable[] = {
   { "skipRecJpeg",&SkipRecordJpeg },
 //  { "mem",        &MemoryAccess },
 };
+
+static void CloseCommandFd(int fd, fd_set *targetFd) {
+
+  if(fd < 0) return;
+  close(fd);
+  FD_CLR(fd, targetFd);
+  if(fd < FD_SETSIZE) {
+    free(CommandInput[fd]);
+    CommandInput[fd] = NULL;
+    CommandInputLen[fd] = 0;
+  }
+}
 
 void CommandResponse(int fd, const char *res) {
 
@@ -139,8 +153,7 @@ static void *CommandThread(void *arg) {
                 strncat(msg.res, "\n", sizeof(msg.res) - strlen(msg.res) - 1);
                 send(msg.fd, msg.res, strlen(msg.res) + 1, 0);
               }
-              close(msg.fd);
-              FD_CLR(msg.fd, &targetFd);
+              CloseCommandFd(msg.fd, &targetFd);
             }
           } else if(fd == listenSocket) {
             struct sockaddr_in dstAddr;
@@ -160,6 +173,14 @@ static void *CommandThread(void *arg) {
               close(newSocket);
               continue;
             }
+            free(CommandInput[newSocket]);
+            CommandInput[newSocket] = malloc(256);
+            CommandInputLen[newSocket] = 0;
+            if(!CommandInput[newSocket]) {
+              fprintf(stderr, "command buffer allocation failed\n");
+              close(newSocket);
+              continue;
+            }
             int flag = fcntl(newSocket, F_GETFL, 0);
             fcntl(newSocket, F_SETFL, O_NONBLOCK|flag);
             FD_SET(newSocket, &targetFd);
@@ -168,40 +189,56 @@ static void *CommandThread(void *arg) {
             char buf[256];
             int size = recv(fd, buf, 255, 0);
             if(!size) {
-              close(fd);
-              FD_CLR(fd, &targetFd);
+              CloseCommandFd(fd, &targetFd);
               break;
             }
             if(size < 0) {
-              close(fd);
-              FD_CLR(fd, &targetFd);
+              CloseCommandFd(fd, &targetFd);
               break;
             }
-            buf[size] = 0;
-            char *tokenPtr;
-            char *p = strtok_r(buf, " \t\r\n", &tokenPtr);
-            if(!p) continue;
-            int executed = 0;
-            for(size_t i = 0; i < sizeof(CommandTable) / sizeof(struct CommandTableSt); i++) {
-              if(!strcasecmp(p, CommandTable[i].cmd)) {
-                char *res = (*CommandTable[i].func)(fd, tokenPtr);
-                if(res) {
-                  send(fd, res, strlen(res) + 1, 0);
-                  char cr = '\n';
-                  send(fd, &cr, 1, 0);
-                  close(fd);
-                  FD_CLR(fd, &targetFd);
+
+            for(int j = 0; j < size; j++) {
+              if(buf[j] == '\n' || buf[j] == '\r') {
+                if(CommandInputLen[fd] == 0) continue;
+                CommandInput[fd][CommandInputLen[fd]] = 0;
+                char *tokenPtr;
+                char *p = strtok_r(CommandInput[fd], " \t\r\n", &tokenPtr);
+                if(!p) {
+                  CloseCommandFd(fd, &targetFd);
+                  break;
                 }
-                executed = 1;
+                int executed = 0;
+                for(size_t i = 0; i < sizeof(CommandTable) / sizeof(struct CommandTableSt); i++) {
+                  if(!strcasecmp(p, CommandTable[i].cmd)) {
+                    char *res = (*CommandTable[i].func)(fd, tokenPtr);
+                    if(res) {
+                      send(fd, res, strlen(res) + 1, 0);
+                      char cr = '\n';
+                      send(fd, &cr, 1, 0);
+                      CloseCommandFd(fd, &targetFd);
+                    } else {
+                      FD_CLR(fd, &targetFd);
+                    }
+                    executed = 1;
+                    break;
+                  }
+                }
+                if(!executed) {
+                  char *res = "error";
+                  send(fd, res, strlen(res) + 1, 0);
+                  CloseCommandFd(fd, &targetFd);
+                  fprintf(stderr, "command error : %s\n", p);
+                }
                 break;
+              } else if(CommandInputLen[fd] >= 255) {
+                char *res = "error";
+                send(fd, res, strlen(res) + 1, 0);
+                CloseCommandFd(fd, &targetFd);
+                fprintf(stderr, "command line too long\n");
+                break;
+              } else {
+                CommandInput[fd][CommandInputLen[fd]++] = buf[j];
               }
-            }
-            if(!executed) {
-              char *res = "error";
-              send(fd, res, strlen(res) + 1, 0);
-              close(fd);
-              FD_CLR(fd, &targetFd);
-              fprintf(stderr, "command error : %s\n", p);
             }
           }
          }

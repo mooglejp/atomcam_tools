@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +39,8 @@ static int wait_readable(int fd) {
 }
 
 int main(int argc, char **argv) {
+  signal(SIGPIPE, SIG_IGN);
+
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   if(fd < 0) {
     perror("socket");
@@ -56,23 +59,31 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  size_t command_len = 1;
   for(int i = 1; i < argc; i++) {
-    if(i > 1 && write_all(fd, " ", 1) < 0) {
-      perror("write");
-      close(fd);
-      return 1;
-    }
-    if(write_all(fd, argv[i], strlen(argv[i])) < 0) {
-      perror("write");
-      close(fd);
-      return 1;
-    }
+    command_len += strlen(argv[i]) + 1;
   }
-  if(write_all(fd, "\n", 1) < 0) {
-    perror("write");
+
+  char *command = malloc(command_len + 1);
+  if(!command) {
+    perror("malloc");
     close(fd);
     return 1;
   }
+  command[0] = '\0';
+  for(int i = 1; i < argc; i++) {
+    if(i > 1) strcat(command, " ");
+    strcat(command, argv[i]);
+  }
+  strcat(command, "\n");
+
+  if(write_all(fd, command, strlen(command)) < 0) {
+    perror("write");
+    free(command);
+    close(fd);
+    return 1;
+  }
+  free(command);
 
   char buf[1024];
   int received = 0;

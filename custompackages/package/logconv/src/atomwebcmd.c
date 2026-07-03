@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -69,10 +70,22 @@ static int atom_cmd(const char *cmd, char *out, size_t out_size) {
     return -1;
   }
 
-  if(write_all(fd, cmd, strlen(cmd)) < 0 || write_all(fd, "\n", 1) < 0) {
+  size_t command_len = strlen(cmd);
+  char *command = malloc(command_len + 2);
+  if(!command) {
     close(fd);
     return -1;
   }
+  memcpy(command, cmd, command_len);
+  command[command_len] = '\n';
+  command[command_len + 1] = '\0';
+
+  if(write_all(fd, command, command_len + 1) < 0) {
+    free(command);
+    close(fd);
+    return -1;
+  }
+  free(command);
   shutdown(fd, SHUT_WR);
 
   size_t used = 0;
@@ -429,6 +442,8 @@ static void handle_line(char *line) {
 }
 
 int main(void) {
+  signal(SIGPIPE, SIG_IGN);
+
   unlink(WEB_CMD_FIFO);
   unlink(WEB_RES_FIFO);
   if(mkfifo(WEB_CMD_FIFO, 0666) < 0 && errno != EEXIST) return 1;
