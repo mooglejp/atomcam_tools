@@ -11,17 +11,17 @@ if [ "$REQUEST_METHOD" = "GET" ]; then
     echo LATESTVER=${latest##*Ver.}
   fi
   if [ "$NAME" = "" -o "$NAME" = "status" ] ; then
-    echo TIMELAPSE=`echo "timelapse" | nc localhost:4000`
+    echo TIMELAPSE=`/scripts/cmd timelapse`
   fi
   if [ "$NAME" = "" -o "$NAME" = "status" ] ; then
     echo TIMESTAMP=`date +"%Y/%m/%d %X"`
   fi
   if [ "$NAME" = "" -o "$NAME" = "status" ] ; then
-    res=`echo center | nc localhost:4000`
+    res=`/scripts/cmd center`
     echo CENTER=$res
   fi
   if [ "$NAME" = "" -o "$NAME" = "status" ] ; then
-    res=`echo video flip | nc localhost:4000`
+    res=`/scripts/cmd video flip`
     echo FLIP=$res
   fi
   if [ "$NAME" = "" -o "$NAME" = "media-size" ] ; then
@@ -29,7 +29,7 @@ if [ "$REQUEST_METHOD" = "GET" ]; then
   fi
   if [ "$NAME" = "" -o "$NAME" = "status" ] ; then
     if [ -f /tmp/motor_initialize_done ] ; then
-      res=`echo move | nc localhost:4000`
+      res=`/scripts/cmd move`
       [ "$res" = "error" ] || echo MOTORPOS=$res
     else
       awk '
@@ -75,7 +75,9 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
     }
   ' | (
     if [ "$PORT" = "socket" ]; then
-      /usr/bin/nc localhost:4000
+      while IFS= read -r cmdline; do
+        /scripts/cmd $cmdline
+      done
     else
       cat >> /var/run/webcmd
       read ack < /var/run/webres

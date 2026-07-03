@@ -145,7 +145,7 @@ AtomCamのiCloud_appが動体検知をクラウドに送信後に削除する際
 
 ## `/scripts/cmd`
 
-iCamera_app内部パラメータや動作を変更するためのコマンドを実行するラッパーコマンドです。
+iCamera_app内部パラメータや動作を変更するためのコマンドを実行する`atomcmd`バイナリです。
 
 ## `/scripts/cruise.sh`
 

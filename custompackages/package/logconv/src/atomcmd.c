@@ -73,9 +73,9 @@ int main(int argc, char **argv) {
     close(fd);
     return 1;
   }
-  shutdown(fd, SHUT_WR);
 
   char buf[1024];
+  int received = 0;
   for(;;) {
     int ready = wait_readable(fd);
     if(ready < 0) {
@@ -94,6 +94,7 @@ int main(int argc, char **argv) {
       return 1;
     }
     if(n == 0) break;
+    received = 1;
     if(write_all(STDOUT_FILENO, buf, (size_t)n) < 0) {
       perror("stdout");
       close(fd);
@@ -102,5 +103,9 @@ int main(int argc, char **argv) {
   }
 
   close(fd);
+  if(!received) {
+    fprintf(stderr, "atomcmd: response timeout\n");
+    return 1;
+  }
   return 0;
 }

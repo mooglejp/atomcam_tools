@@ -9,15 +9,15 @@ if [ -f $ISP_CONF ] ; then
     [ "${l%%=*}" = 'expmode' ] && expmode=${l##*=} && continue;
     [ "${l%%=*}" = 'expline' ] && expline=${l##*=} && continue;
     if [ "${l%%=*}" != 'sinter' -a "${l%%=*}" != 'temper' ] ; then
-      res=`echo "video ${l%%=*}" | /usr/bin/nc localhost:4000`
+      res=`/scripts/cmd video ${l%%=*}`
       echo "${l%%=*} : ${res}"
     fi
-    echo "video ${l//=/ }" | /usr/bin/nc localhost:4000 > /dev/null
+    /scripts/cmd video ${l//=/ } > /dev/null
   done < $ISP_CONF
-  res=`echo "video expr" | /usr/bin/nc localhost:4000`
+  res=`/scripts/cmd video expr`
   echo "expr : ${res}"
   if [ "${expmode}" != "" -a "${expline}" != "" -a "${aeitmin}" != "" -a "${aeitmax}" != "" ] ; then
-    echo "video expr ${expmode} ${expline} ${aeitmin} ${aeitmax}" | /usr/bin/nc localhost:4000 > /dev/null
+    /scripts/cmd video expr ${expmode} ${expline} ${aeitmin} ${aeitmax} > /dev/null
   fi
 fi
 
@@ -48,4 +48,3 @@ fi
 [ "$BITRATE_MAIN_AVC" = "" ] || [ "$BITRATE_MAIN_AVC" -le 0 ] || /scripts/cmd video bitrate 0 $BITRATE_MAIN_AVC > /dev/null
 [ "$BITRATE_SUB_HEVC" = "" ] || [ "$BITRATE_SUB_HEVC" -le 0 ] || /scripts/cmd video bitrate 1 $BITRATE_SUB_HEVC > /dev/null
 [ "$BITRATE_MAIN_HEVC" = "" ] || [ "$BITRATE_MAIN_HEVC" -le 0 ] || /scripts/cmd video bitrate 3 $BITRATE_MAIN_HEVC > /dev/null
-

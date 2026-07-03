@@ -1,0 +1,17 @@
+diff --git a/inc/HTTPServer.h b/inc/HTTPServer.h
+index 21c6d3e..e328a3d 100644
+--- a/inc/HTTPServer.h
++++ b/inc/HTTPServer.h
+@@ -169,11 +169,11 @@ class HTTPServer : public RTSPServer
+ 			int ourSocketIPv4 = setUpOurSocket(env, rtspPort, AF_INET);
+ #endif			
+ #if LIVEMEDIA_LIBRARY_VERSION_INT	<	1611187200
+ 		  	int ourSocketIPv6 = -1;
+ #else
+-		  	int ourSocketIPv6 = setUpOurSocket(env, rtspPort, AF_INET6);
++		  	int ourSocketIPv6 = -1;
+ #endif		  
+ 
+ 			if (ourSocketIPv4 != -1) 
+ 			{
+ 				httpServer = new HTTPServer(env, ourSocketIPv4, ourSocketIPv6, rtspPort, authDatabase, reclamationTestSeconds, hlsSegment, webroot, sslCert);

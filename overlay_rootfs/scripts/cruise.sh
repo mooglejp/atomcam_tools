@@ -23,13 +23,13 @@ while : ; do
     param=${str#* }
     echo `date +"%Y/%m/%d %H:%M:%S"` : $cmd :  $param
     if [ "$cmd" = "move" ] ; then
-      echo "$cmd $param" | /usr/bin/nc localhost 4000
+      /scripts/cmd $cmd $param
     fi
     if [ "$cmd" = "detect" ] ; then
       wait=${param%% *}
       while : ; do
         IFS=" "
-        motion=`echo "waitMotion $wait" | /usr/bin/nc localhost 4000`
+        motion=`/scripts/cmd waitMotion $wait`
         if [ "$motion" = "timeout" ] ; then
           break;
         fi
@@ -44,14 +44,14 @@ while : ; do
       speed=$3
       [ "$speed" = "" ] && speed=9
       while : ; do
-        motion=`echo "waitMotion $wait" | /usr/bin/nc localhost 4000`
+        motion=`/scripts/cmd waitMotion $wait`
         if [ "$motion" = "timeout" ] ; then
           break;
         fi
         set $motion
         if [ "$1" = "detect" ] ; then
           echo "detect move $6 $7 $speed"
-          echo "move $6 $7 $speed" | /usr/bin/nc localhost 4000
+          /scripts/cmd move $6 $7 $speed
         fi
         wait=$wait2
       done

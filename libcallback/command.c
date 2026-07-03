@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/select.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -33,7 +34,7 @@ extern char *Watermark(int fd, char *tokenPtr);
 extern char *SkipRecordJpeg(int fd, char *tokenPtr);
 //extern char *MemoryAccess(int fd, char *tokenPtr);
 
-char *CommandResBuf[256];
+char CommandResBuf[256];
 int wyze = 0;
 int swing = 0;
 
@@ -66,16 +67,20 @@ struct CommandTableSt CommandTable[] = {
 void CommandResponse(int fd, const char *res) {
 
   if(fd < 0) return;
-  unsigned char buf[256];
-  buf[0] = strlen(res) + 1;
-  buf[1] = fd;
-  strncpy((char *)buf + 2, res, 253);
-  write(SelfPipe[1], &buf, buf[0] + 2);
+  struct {
+    int fd;
+    char res[256];
+  } msg;
+  msg.fd = fd;
+  strncpy(msg.res, res, sizeof(msg.res) - 1);
+  msg.res[sizeof(msg.res) - 1] = '\0';
+  write(SelfPipe[1], &msg, sizeof(msg));
 }
 
 static void *CommandThread(void *arg) {
 
-  static const int MaxConnect = 255;
+  (void)arg;
+  static const int ListenBacklog = 255;
   int maxFd = 0;
   fd_set targetFd;
 
@@ -102,7 +107,7 @@ static void *CommandThread(void *arg) {
     return NULL;
   }
 
-  if(listen(listenSocket, MaxConnect) == -1) {
+  if(listen(listenSocket, ListenBacklog) == -1) {
     fprintf(stderr, "listen : %s\n", strerror(errno));
     close(listenSocket);
     return NULL;
@@ -113,7 +118,6 @@ static void *CommandThread(void *arg) {
   maxFd = listenSocket;
   FD_SET(SelfPipe[0], &targetFd);
   maxFd = (SelfPipe[0] > maxFd) ? SelfPipe[0] : maxFd;
-  if(maxFd >= MaxConnect) maxFd = MaxConnect - 1;
 
   while(1) {
     fd_set checkFDs;
@@ -125,20 +129,18 @@ static void *CommandThread(void *arg) {
         if(FD_ISSET(fd, &checkFDs)) {
           if(fd == SelfPipe[0]) {
             while(1) {
-              unsigned char buf[256];
-              int length = read(SelfPipe[0], buf, 2);
-              if(length <= 1) break;
-              int resSize = buf[0];
-              int resFd = buf[1];
-              length = read(SelfPipe[0], buf, resSize);
-              if(length < resSize) break;
-              char *res = (char *)buf;
-              if(strlen(res)) {
-                strcat(res, "\n");
-                send(resFd, res, strlen(res) + 1, 0);
+              struct {
+                int fd;
+                char res[256];
+              } msg;
+              int length = read(SelfPipe[0], &msg, sizeof(msg));
+              if(length != sizeof(msg)) break;
+              if(strlen(msg.res)) {
+                strncat(msg.res, "\n", sizeof(msg.res) - strlen(msg.res) - 1);
+                send(msg.fd, msg.res, strlen(msg.res) + 1, 0);
               }
-              close(resFd);
-              FD_CLR(resFd, &targetFd);
+              close(msg.fd);
+              FD_CLR(msg.fd, &targetFd);
             }
           } else if(fd == listenSocket) {
             struct sockaddr_in dstAddr;
@@ -153,15 +155,20 @@ static void *CommandThread(void *arg) {
               close(newSocket);
               continue;
             }
+            if(newSocket >= FD_SETSIZE) {
+              fprintf(stderr, "Too many command sockets: %d\n", newSocket);
+              close(newSocket);
+              continue;
+            }
             int flag = fcntl(newSocket, F_GETFL, 0);
             fcntl(newSocket, F_SETFL, O_NONBLOCK|flag);
             FD_SET(newSocket, &targetFd);
             maxFd = (newSocket > maxFd) ? newSocket : maxFd;
-            if(maxFd >= MaxConnect) maxFd = MaxConnect - 1;
           } else {
             char buf[256];
             int size = recv(fd, buf, 255, 0);
             if(!size) {
+              close(fd);
               FD_CLR(fd, &targetFd);
               break;
             }
@@ -175,7 +182,7 @@ static void *CommandThread(void *arg) {
             char *p = strtok_r(buf, " \t\r\n", &tokenPtr);
             if(!p) continue;
             int executed = 0;
-            for(int i = 0; i < sizeof(CommandTable) / sizeof(struct CommandTableSt); i++) {
+            for(size_t i = 0; i < sizeof(CommandTable) / sizeof(struct CommandTableSt); i++) {
               if(!strcasecmp(p, CommandTable[i].cmd)) {
                 char *res = (*CommandTable[i].func)(fd, tokenPtr);
                 if(res) {
@@ -224,8 +231,8 @@ static void __attribute ((constructor)) command_init(void) {
 
   unsetenv("LD_PRELOAD");
   char *p = getenv("PRODUCT_MODEL");
-  if(!strcmp(p, "WYZE_CAKP2JFUS")) wyze = 1;
-  if(!strcmp(p, "ATOM_CAKP1JZJP")) swing = 1;
+  if(p && !strcmp(p, "WYZE_CAKP2JFUS")) wyze = 1;
+  if(p && !strcmp(p, "ATOM_CAKP1JZJP")) swing = 1;
 
   if(pipe(SelfPipe)) {
     fprintf(stderr, "pipe error\n");
