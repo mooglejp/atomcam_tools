@@ -31,7 +31,7 @@ FFMPEG_CONF_OPTS = \
 	--enable-network \
 	--disable-gray \
 	--enable-swscale-alpha \
-	--disable-small \
+	--enable-small \
 	--disable-dxva2 \
 	--enable-runtime-cpudetect \
 	--disable-hardcoded-tables \

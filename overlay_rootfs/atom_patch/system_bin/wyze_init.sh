@@ -37,7 +37,7 @@ sync
 ATOMAPP_LOG=/dev/null
 [ -p /var/run/atomapp ] && ATOMAPP_LOG=/var/run/atomapp
 
-/sbin/syslogd -C2048 -n -S &
+/sbin/syslogd -C512 -n -S &
 count=0
 while :
 do

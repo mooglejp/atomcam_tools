@@ -1,18 +1,37 @@
-#!/bin/bash
+#!/bin/sh
 #
-# Swaps on the sdcard if available
+# Swaps on zram (compressed RAM) first, then the sdcard if available
 #
 
 SWAPFILE=/media/mmc/swap
+
+start_zram() {
+  [ -b /dev/zram0 ] || return 0
+  grep -q '^/dev/zram0 ' /proc/swaps && return 0
+  # comp_algorithm must be set before disksize
+  [ -w /sys/block/zram0/comp_algorithm ] && echo lz4 > /sys/block/zram0/comp_algorithm 2> /dev/null
+  mem=`awk '/^MemTotal:/ {print $2}' /proc/meminfo`
+  echo $((mem / 2))K > /sys/block/zram0/disksize
+  mkswap /dev/zram0
+  swapon -p 100 /dev/zram0 2> /dev/null || swapon /dev/zram0
+}
+
+start_sdswap() {
+  [ ! -f $SWAPFILE ] && dd if=/dev/zero of=$SWAPFILE bs=1M count=128
+  mkswap $SWAPFILE
+  swapon -p 10 $SWAPFILE 2> /dev/null || swapon $SWAPFILE
+}
+
 case "$1" in
   start)
-    echo "Starting swap on sdcard using $SWAPFILE"
-    [ ! -f $SWAPFILE ] && dd if=/dev/zero of=$SWAPFILE bs=1M count=128
-    mkswap $SWAPFILE
-    swapon $SWAPFILE
+    echo "Starting swap on zram and sdcard using $SWAPFILE"
+    start_zram
+    start_sdswap
+    echo 80 > /proc/sys/vm/swappiness
     echo 2048 > /proc/sys/vm/min_free_kbytes
   ;;
   stop)
+    swapoff /dev/zram0 2> /dev/null
     swapoff $SWAPFILE
   ;;
   restart|reload)
@@ -25,5 +44,3 @@ case "$1" in
 esac
 
 exit $?
-
-
