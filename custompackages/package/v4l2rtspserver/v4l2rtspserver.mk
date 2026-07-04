@@ -13,7 +13,9 @@ V4L2RTSPSERVER_SITE_METHOD = git
 V4L2RTSPSERVER_LICENSE = UNLICENSE
 V4L2RTSPSERVER_LICENSE_FILES = LICENSE
 V4L2RTSPSERVER_INSTALL_TARGET = YES
-V4L2RTSPSERVER_DEPENDENCIES = live555 v4l2cpp opus
+# v4l2rtspserver links -lmp3lame and -lfdk-aac (see 0001-use-custom-makefile.patch),
+# so lame and fdk-aac must be built explicitly rather than pulled in via ffmpeg.
+V4L2RTSPSERVER_DEPENDENCIES = live555 v4l2cpp opus lame fdk-aac
 V4L2RTSPSERVER_CFLAGS = $(TARGET_CFLAGS) -DVERSION=1
 
 ifndef ($(BR2_ENABLE_LOCALE),y)
