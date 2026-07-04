@@ -1,35 +1,27 @@
 #!/bin/sh
 #
-# sshd        Starts dropbear sshd.
+# sshd        Starts sshd.
 #
 
-# Make sure the dropbear program exists
-[ -x /usr/sbin/dropbear ] || exit 0
+# Make sure the ssh-keygen progam exists
+[ -f /usr/bin/ssh-keygen ] || exit 0
 
-# Only start when login keys are provided on the sdcard
 [ -f /media/mmc/authorized_keys ] || exit 0
 
-# Host keys persist on /configs (sdcard ext2 image)
-KEYDIR=/configs/etc/dropbear
+# Create any missing keys
+/usr/bin/ssh-keygen -A
 
-gen_keys() {
-	mkdir -p $KEYDIR
-	[ -f $KEYDIR/dropbear_rsa_host_key ] || /usr/bin/dropbearkey -t rsa -f $KEYDIR/dropbear_rsa_host_key
-	[ -f $KEYDIR/dropbear_ed25519_host_key ] || /usr/bin/dropbearkey -t ed25519 -f $KEYDIR/dropbear_ed25519_host_key
-}
+umask 077
 
 start() {
-	printf "Starting dropbear sshd: "
-	umask 077
-	# Key generation may take a few seconds on the first boot
-	( gen_keys
-	  /usr/sbin/dropbear -s -r $KEYDIR/dropbear_rsa_host_key -r $KEYDIR/dropbear_ed25519_host_key
-	  touch /var/lock/sshd ) &
+	printf "Starting sshd: "
+	/usr/sbin/sshd
+	touch /var/lock/sshd
 	echo "OK"
 }
 stop() {
-	printf "Stopping dropbear sshd: "
-	killall dropbear
+	printf "Stopping sshd: "
+	killall sshd
 	rm -f /var/lock/sshd
 	echo "OK"
 }
@@ -54,3 +46,4 @@ case "$1" in
 esac
 
 exit $?
+

@@ -13,6 +13,7 @@
 # /atom/media -> /media
 # /atom/tmp/system/lib -> /lib
 # /atom/tmp/system/usr/lib -> /usr/lib
+# /configs/etc/ssh -> /etc/ssh
 # /configs/etc/lighttpd -> /etc/lighttpd
 # /configs/etc/wpa_supplicant.conf -> /etc/wpa_supplicant.conf
 # /configs/root -> /root
@@ -36,6 +37,10 @@ case "$1" in
     [ -f /media/mmc/tools_configs ] || ( dd if=/dev/zero of=/media/mmc/tools_configs bs=1M count=1 && mkfs.ext2 -F /media/mmc/tools_configs )
     fsck -t ext2 -y /media/mmc/tools_configs
     mount -t ext2 -o loop /media/mmc/tools_configs /configs
+    if [ ! -d /configs/etc/ssh ] ; then
+      mkdir -p /configs/etc/ssh
+      cp -pr /etc/ssh/* /configs/etc/ssh
+    fi
     if [ ! -f /configs/etc/wpa_supplicant.conf ] ; then
       cp -pr /etc/wpa_supplicant.conf /configs/etc
     fi
@@ -61,6 +66,7 @@ case "$1" in
     mount -o bind /tmp /atom/tmp
     mount -o rbind /media /atom/media
 
+    mount -o bind /configs/etc/ssh /etc/ssh
     mount -o bind /configs/etc/lighttpd /etc/lighttpd
     mount -o bind /configs/etc/wpa_supplicant.conf /etc/wpa_supplicant.conf
     mount -o bind /configs/root /root
@@ -78,6 +84,7 @@ case "$1" in
     umount /root
     umount /etc/wpa_supplicant.conf
     umount /etc/lighttpd
+    umount /etc/ssh
     umount /atom/media/mmc
     umount /atom/media
     umount /atom/tmp

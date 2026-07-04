@@ -8,10 +8,7 @@ case "$1" in
   start)
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
-    if [ -f /media/mmc/authorized_keys ] ; then
-      cp /media/mmc/authorized_keys /root/.ssh
-      chmod 600 /root/.ssh/authorized_keys
-    fi
+    [ -f /media/mmc/authorized_keys ] && cp /media/mmc/authorized_keys /root/.ssh
 	;;
   stop)
 	;;
