@@ -7,6 +7,7 @@ BEGIN {
   printf("*/30 * * * * /usr/sbin/logrotate /etc/logrotate.conf\n");
   printf("5 * * * * /scripts/remove_old.sh\n");
   printf("10 */6 * * * /scripts/memory_check.sh\n");
+  printf("*/10 * * * * /scripts/ntp_check.sh >> /media/mmc/atomhack.log\n");
   printf("*/5 * * * * /scripts/lighttpd.sh watchdog >> /media/mmc/atomhack.log\n");
   while((getline line < "/media/mmc/crontab") == 1) {
     print line;

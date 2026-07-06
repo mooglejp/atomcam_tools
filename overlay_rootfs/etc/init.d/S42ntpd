@@ -3,16 +3,32 @@
 # Start network time daemon
 #
 
+HACK_INI=/tmp/hack.ini
+
 case "$1" in
   start)
     logger -s "Starting ntpd: "
-    if ping -c 1 ntp.nict.jp > /dev/null ; then
-      /usr/sbin/ntpd -qn -p ntp.nict.jp
-    else
-      [ -f /media/mmc/time.ini ] && date -s @`sed -ne 's/utc=//p' /media/mmc/time.ini`
+    NTP_SERVER=$(awk -F "=" '/^NTP_SERVER *=/ {gsub(/[ \t]/, "", $2); print $2}' $HACK_INI)
+    [ "$NTP_SERVER" = "" ] && NTP_SERVER=ntp.nict.jp
+
+    # no RTC battery: restore last saved time until first sync
+    if [ -f /media/mmc/time.ini ]; then
+      SAVED=$(sed -ne 's/utc=//p' /media/mmc/time.ini)
+      [ "$SAVED" != "" ] && [ $(date +%s) -lt $SAVED ] && date -s @$SAVED
     fi
-    /usr/sbin/ntpd -p ntp.nict.jp
-    [ $? == 0 ] && logger -s "OK" || logger -s "FAIL"
+
+    # busybox 1.24 ntpd dies at startup if DNS is not ready yet, so wait
+    # for the network in the background instead of blocking boot
+    (
+      for count in $(seq 60); do
+        ping -c 1 $NTP_SERVER > /dev/null 2>&1 && break
+        sleep 5
+      done
+      if ! pidof ntpd > /dev/null ; then
+        /usr/sbin/ntpd -p $NTP_SERVER -p ntp.jst.mfeed.ad.jp
+        [ $? == 0 ] && logger -s "ntpd OK" || logger -s "ntpd FAIL"
+      fi
+    ) &
   ;;
   stop)
     logger -s "Stopping ntpd: "
