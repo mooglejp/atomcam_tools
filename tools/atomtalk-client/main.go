@@ -52,6 +52,17 @@ func splitExtraArgs(s string) []string {
 	return fields
 }
 
+func outputFFmpegArgs() []string {
+	return []string{
+		"-vn",
+		"-ac", fmt.Sprint(channels),
+		"-ar", fmt.Sprint(sampleRate),
+		"-acodec", "pcm_s16le",
+		"-f", "s16le",
+		"-",
+	}
+}
+
 func buildFFmpegArgs(format, input, extra string) []string {
 	args := []string{
 		"-hide_banner",
@@ -62,14 +73,32 @@ func buildFFmpegArgs(format, input, extra string) []string {
 	args = append(args,
 		"-f", format,
 		"-i", input,
-		"-vn",
-		"-ac", fmt.Sprint(channels),
-		"-ar", fmt.Sprint(sampleRate),
-		"-acodec", "pcm_s16le",
-		"-f", "s16le",
-		"-",
 	)
+	args = append(args, outputFFmpegArgs()...)
 	return args
+}
+
+func buildFileFFmpegArgs(file, extra string) []string {
+	args := []string{
+		"-hide_banner",
+		"-loglevel", "error",
+		"-re",
+	}
+	args = append(args, splitExtraArgs(extra)...)
+	args = append(args, "-i", file)
+	args = append(args, outputFFmpegArgs()...)
+	return args
+}
+
+type countingReader struct {
+	r io.Reader
+	n int64
+}
+
+func (r *countingReader) Read(p []byte) (int, error) {
+	n, err := r.r.Read(p)
+	r.n += int64(n)
+	return n, err
 }
 
 func resolveCaptureInput(ffmpegPath, format, input string) (string, string, error) {
@@ -172,6 +201,7 @@ func run() error {
 		ffmpegPath = flag.String("ffmpeg", "ffmpeg", "ffmpeg executable path")
 		format     = flag.String("format", defaultFormat(), "ffmpeg input format")
 		input      = flag.String("input", defaultInput(), "ffmpeg input device")
+		fileInput  = flag.String("file", "", "audio file path; overrides -format/-input and streams in real time")
 		frameMS    = flag.Int("frame-ms", 40, "UDP audio frame size in milliseconds")
 		extraArgs  = flag.String("ffmpeg-args", "", "extra ffmpeg arguments inserted before -f/-i")
 	)
@@ -198,12 +228,16 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	captureFormat, captureInput, err := resolveCaptureInput(*ffmpegPath, *format, *input)
-	if err != nil {
-		return err
+	var args []string
+	if *fileInput != "" {
+		args = buildFileFFmpegArgs(*fileInput, *extraArgs)
+	} else {
+		captureFormat, captureInput, err := resolveCaptureInput(*ffmpegPath, *format, *input)
+		if err != nil {
+			return err
+		}
+		args = buildFFmpegArgs(captureFormat, captureInput, *extraArgs)
 	}
-
-	args := buildFFmpegArgs(captureFormat, captureInput, *extraArgs)
 	cmd := exec.CommandContext(ctx, *ffmpegPath, args...)
 	cmd.Stderr = os.Stderr
 	stdout, err := cmd.StdoutPipe()
@@ -214,11 +248,12 @@ func run() error {
 		return err
 	}
 
+	pcm := &countingReader{r: stdout}
 	var streamErr error
 	if *relayURL != "" {
-		streamErr = streamHTTP(ctx, stdout, *relayURL, *relayUser, *relayPass, frameBytes)
+		streamErr = streamHTTP(ctx, pcm, *relayURL, *relayUser, *relayPass, frameBytes)
 	} else {
-		streamErr = streamUDP(ctx, stdout, *host, *port, *token, frameBytes)
+		streamErr = streamUDP(ctx, pcm, *host, *port, *token, frameBytes)
 	}
 	if streamErr != nil {
 		_ = cmd.Process.Kill()
@@ -231,6 +266,9 @@ func run() error {
 
 	if err := cmd.Wait(); err != nil && ctx.Err() == nil {
 		return err
+	}
+	if pcm.n == 0 && ctx.Err() == nil {
+		return fmt.Errorf("ffmpeg produced no PCM audio; check input options or use -file for audio files")
 	}
 	return nil
 }

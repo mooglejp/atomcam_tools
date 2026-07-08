@@ -30,6 +30,25 @@ To send through `onvif-relay` instead of directly to the camera:
   -relay-pass onvif_password
 ```
 
+To play an audio file instead of microphone input, use `-file`. The client lets ffmpeg auto-detect the input format and adds `-re` so playback is sent in real time:
+
+```powershell
+.\atomtalk-client.exe `
+  -host 192.168.105.196 `
+  -token "your-token" `
+  -file "D:\Git\Irodori-TTS\outputs\no-leave.wav"
+```
+
+Relay mode can use the same file input:
+
+```powershell
+.\atomtalk-client.exe `
+  -relay-url http://192.168.1.10:8080/talk/living-room `
+  -relay-user onvif_user `
+  -relay-pass onvif_password `
+  -file "D:\Git\Irodori-TTS\outputs\no-leave.wav"
+```
+
 The default Windows capture path uses ffmpeg's DirectShow input and auto-selects the first audio capture device:
 
 ```powershell

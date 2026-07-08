@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -27,6 +30,60 @@ func TestParseFirstDShowAudioDevice(t *testing.T) {
 func TestParseFirstDShowAudioDeviceMissing(t *testing.T) {
 	if got, ok := parseFirstDShowAudioDevice("DirectShow audio devices\nAlternative name \"x\""); ok {
 		t.Fatalf("unexpected device: %q", got)
+	}
+}
+
+func TestBuildFileFFmpegArgs(t *testing.T) {
+	got := buildFileFFmpegArgs(`D:\Git\Irodori-TTS\outputs\no-leave.wav`, "")
+	want := []string{
+		"-hide_banner",
+		"-loglevel", "error",
+		"-re",
+		"-i", `D:\Git\Irodori-TTS\outputs\no-leave.wav`,
+		"-vn",
+		"-ac", "1",
+		"-ar", "8000",
+		"-acodec", "pcm_s16le",
+		"-f", "s16le",
+		"-",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected args:\ngot  %#v\nwant %#v", got, want)
+	}
+}
+
+func TestBuildCaptureFFmpegArgsKeepsExplicitFormat(t *testing.T) {
+	got := buildFFmpegArgs("wav", `D:\Git\Irodori-TTS\outputs\no-leave.wav`, "-re")
+	want := []string{
+		"-hide_banner",
+		"-loglevel", "error",
+		"-fflags", "nobuffer",
+		"-re",
+		"-f", "wav",
+		"-i", `D:\Git\Irodori-TTS\outputs\no-leave.wav`,
+		"-vn",
+		"-ac", "1",
+		"-ar", "8000",
+		"-acodec", "pcm_s16le",
+		"-f", "s16le",
+		"-",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected args:\ngot  %#v\nwant %#v", got, want)
+	}
+}
+
+func TestCountingReaderCountsBytes(t *testing.T) {
+	reader := &countingReader{r: strings.NewReader("abc")}
+	got, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "abc" {
+		t.Fatalf("unexpected body: %q", string(got))
+	}
+	if reader.n != 3 {
+		t.Fatalf("unexpected byte count: %d", reader.n)
 	}
 }
 
