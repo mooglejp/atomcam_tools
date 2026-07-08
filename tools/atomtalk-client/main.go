@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -221,6 +222,10 @@ func run() error {
 	}
 	if streamErr != nil {
 		_ = cmd.Process.Kill()
+		if isExpectedShutdownError(ctx, streamErr) {
+			_ = cmd.Wait()
+			return nil
+		}
 		return streamErr
 	}
 
@@ -293,6 +298,9 @@ func streamHTTP(ctx context.Context, r io.Reader, relayURL, username, password s
 	if err != nil {
 		_ = pr.Close()
 		_ = pw.Close()
+		if isExpectedShutdownError(ctx, err) {
+			return nil
+		}
 		return err
 	}
 	defer resp.Body.Close()
@@ -303,7 +311,25 @@ func streamHTTP(ctx context.Context, r io.Reader, relayURL, username, password s
 		return fmt.Errorf("relay returned %s: %s", resp.Status, string(body))
 	}
 
-	return <-copyDone
+	if err := <-copyDone; err != nil && !isExpectedShutdownError(ctx, err) {
+		return err
+	}
+	return nil
+}
+
+func isExpectedShutdownError(ctx context.Context, err error) bool {
+	if err == nil || ctx.Err() == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, net.ErrClosed) ||
+		errors.Is(err, io.ErrClosedPipe) {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "use of closed network connection") ||
+		strings.Contains(msg, "read/write on closed pipe")
 }
 
 func main() {
