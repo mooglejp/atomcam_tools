@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/camera"
 )
@@ -67,6 +68,8 @@ func (p *Proxy) Handler() http.HandlerFunc {
 			return
 		}
 
+		clearStreamingDeadlines(w, cameraName)
+
 		client := NewClient(cam.Config.Host, cam.Config.Talk.Port, cam.Config.Talk.Token)
 		if err := client.Stream(r.Context(), r.Body); err != nil {
 			log.Printf("Talk stream failed for %s: %v", cameraName, err)
@@ -86,4 +89,14 @@ func (p *Proxy) authorized(r *http.Request) bool {
 	usernameMatch := subtle.ConstantTimeCompare([]byte(username), []byte(p.username)) == 1
 	passwordMatch := subtle.ConstantTimeCompare([]byte(password), []byte(p.password)) == 1
 	return usernameMatch && passwordMatch
+}
+
+func clearStreamingDeadlines(w http.ResponseWriter, cameraName string) {
+	controller := http.NewResponseController(w)
+	if err := controller.SetReadDeadline(time.Time{}); err != nil {
+		log.Printf("WARNING: failed to clear talk read deadline for %s: %v", cameraName, err)
+	}
+	if err := controller.SetWriteDeadline(time.Time{}); err != nil {
+		log.Printf("WARNING: failed to clear talk write deadline for %s: %v", cameraName, err)
+	}
 }
