@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -84,6 +85,50 @@ func TestCountingReaderCountsBytes(t *testing.T) {
 	}
 	if reader.n != 3 {
 		t.Fatalf("unexpected byte count: %d", reader.n)
+	}
+}
+
+func TestTailPaddingReaderAppendsSilenceAfterData(t *testing.T) {
+	reader := &tailPaddingReader{
+		r:         strings.NewReader("abc"),
+		remaining: 4,
+	}
+	got, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte{'a', 'b', 'c', 0, 0, 0, 0}
+	if !bytes.Equal(got, want) {
+		t.Fatalf("unexpected body: %#v", got)
+	}
+}
+
+func TestTailPaddingReaderDoesNotPadEmptyInput(t *testing.T) {
+	reader := &tailPaddingReader{
+		r:         strings.NewReader(""),
+		remaining: 4,
+	}
+	got, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("unexpected body: %#v", got)
+	}
+}
+
+func TestResolveTailMSDefaultsToFileOnly(t *testing.T) {
+	if got, err := resolveTailMS("", -1); err != nil || got != 0 {
+		t.Fatalf("capture default tail = %d, %v", got, err)
+	}
+	if got, err := resolveTailMS("voice.wav", -1); err != nil || got != 1000 {
+		t.Fatalf("file default tail = %d, %v", got, err)
+	}
+	if got, err := resolveTailMS("voice.wav", 1500); err != nil || got != 1500 {
+		t.Fatalf("configured tail = %d, %v", got, err)
+	}
+	if _, err := resolveTailMS("voice.wav", 10001); err == nil {
+		t.Fatal("expected out-of-range tail-ms error")
 	}
 }
 

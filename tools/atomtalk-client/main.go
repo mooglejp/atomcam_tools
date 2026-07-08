@@ -101,6 +101,59 @@ func (r *countingReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
+type tailPaddingReader struct {
+	r           io.Reader
+	remaining   int64
+	baseEOF     bool
+	baseHadData bool
+}
+
+func (r *tailPaddingReader) Read(p []byte) (int, error) {
+	if !r.baseEOF {
+		n, err := r.r.Read(p)
+		if n > 0 {
+			r.baseHadData = true
+			if err == io.EOF {
+				r.baseEOF = true
+			}
+			return n, nil
+		}
+		if err == nil {
+			return 0, nil
+		}
+		if err != io.EOF {
+			return 0, err
+		}
+		r.baseEOF = true
+	}
+
+	if !r.baseHadData || r.remaining <= 0 {
+		return 0, io.EOF
+	}
+	n := len(p)
+	if int64(n) > r.remaining {
+		n = int(r.remaining)
+	}
+	for i := range p[:n] {
+		p[i] = 0
+	}
+	r.remaining -= int64(n)
+	return n, nil
+}
+
+func resolveTailMS(fileInput string, configured int) (int, error) {
+	if configured < 0 {
+		if fileInput != "" {
+			return 1000, nil
+		}
+		return 0, nil
+	}
+	if configured > 10000 {
+		return 0, fmt.Errorf("-tail-ms must be between 0 and 10000")
+	}
+	return configured, nil
+}
+
 func resolveCaptureInput(ffmpegPath, format, input string) (string, string, error) {
 	if runtime.GOOS != "windows" {
 		return format, input, nil
@@ -203,6 +256,7 @@ func run() error {
 		input      = flag.String("input", defaultInput(), "ffmpeg input device")
 		fileInput  = flag.String("file", "", "audio file path; overrides -format/-input and streams in real time")
 		frameMS    = flag.Int("frame-ms", 40, "UDP audio frame size in milliseconds")
+		tailMS     = flag.Int("tail-ms", -1, "silence appended after finite input in milliseconds; default 1000 for -file, 0 otherwise")
 		extraArgs  = flag.String("ffmpeg-args", "", "extra ffmpeg arguments inserted before -f/-i")
 	)
 	flag.Parse()
@@ -223,6 +277,14 @@ func run() error {
 	}
 	if frameBytes <= 0 || frameBytes > 1400 {
 		return fmt.Errorf("computed frame size %d is outside safe UDP payload size", frameBytes)
+	}
+	resolvedTailMS, err := resolveTailMS(*fileInput, *tailMS)
+	if err != nil {
+		return err
+	}
+	tailBytes := sampleRate * channels * bytesPerSample * resolvedTailMS / 1000
+	if tailBytes%2 != 0 {
+		tailBytes++
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -249,11 +311,15 @@ func run() error {
 	}
 
 	pcm := &countingReader{r: stdout}
+	streamSource := io.Reader(pcm)
+	if tailBytes > 0 {
+		streamSource = &tailPaddingReader{r: streamSource, remaining: int64(tailBytes)}
+	}
 	var streamErr error
 	if *relayURL != "" {
-		streamErr = streamHTTP(ctx, pcm, *relayURL, *relayUser, *relayPass, frameBytes)
+		streamErr = streamHTTP(ctx, streamSource, *relayURL, *relayUser, *relayPass, frameBytes)
 	} else {
-		streamErr = streamUDP(ctx, pcm, *host, *port, *token, frameBytes)
+		streamErr = streamUDP(ctx, streamSource, *host, *port, *token, frameBytes)
 	}
 	if streamErr != nil {
 		_ = cmd.Process.Kill()
