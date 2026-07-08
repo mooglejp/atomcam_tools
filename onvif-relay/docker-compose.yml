@@ -5,7 +5,7 @@ services:
 
     # Option 2: Use pre-built multi-arch image from GitHub Container Registry
     # Uncomment the line below and comment out "build: ." to use pre-built image
-    # image: ghcr.io/mooglejp/atomcam_tools/onvif-relay:latest
+    # image: ghcr.io/mooglejp/atomcam-tools-onvif-relay:latest
 
     restart: unless-stopped
     ports:

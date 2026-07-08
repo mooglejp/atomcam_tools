@@ -19,6 +19,9 @@ permissions:
   contents: read
   packages: write
 
+env:
+  ONVIF_RELAY_IMAGE: ghcr.io/${{ github.repository_owner }}/atomcam-tools-onvif-relay
+
 jobs:
   docker:
     runs-on: ubuntu-22.04
@@ -44,7 +47,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/onvif-relay
+          images: ${{ env.ONVIF_RELAY_IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag

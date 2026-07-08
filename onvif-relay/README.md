@@ -71,7 +71,7 @@ docker compose up -d --build
 # docker-compose.ymlを編集
 services:
   onvif-relay:
-    image: ghcr.io/mooglejp/atomcam_tools/onvif-relay:latest
+    image: ghcr.io/mooglejp/atomcam-tools-onvif-relay:latest
     # build: .  # この行をコメントアウト
 ```
 
