@@ -29,12 +29,26 @@ jobs:
       - name: Build firmware
         run: docker compose exec -T builder /src/buildscripts/build_all
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache-dependency-path: tools/atomtalk-client/go.mod
+
+      - name: Build atomtalk Windows client
+        run: |
+          cd tools/atomtalk-client
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ../../atomtalk-client-windows-amd64.exe .
+
       - name: Prepare artifacts
         run: |
           test -s atomcam_tools.zip
+          test -s atomtalk-client-windows-amd64.exe
           mkdir -p artifacts
           cp atomcam_tools.zip artifacts/atomcam_tools.zip
+          cp atomtalk-client-windows-amd64.exe artifacts/atomtalk-client-windows-amd64.exe
           sha256sum artifacts/atomcam_tools.zip > artifacts/SHA256SUMS
+          sha256sum artifacts/atomtalk-client-windows-amd64.exe >> artifacts/SHA256SUMS
           ls -lh artifacts
 
       - name: Upload workflow artifact
@@ -89,4 +103,4 @@ jobs:
               ${prerelease_flag}
           fi
 
-          gh release upload "${release_tag}" artifacts/atomcam_tools.zip artifacts/SHA256SUMS --clobber
+          gh release upload "${release_tag}" artifacts/atomcam_tools.zip artifacts/atomtalk-client-windows-amd64.exe artifacts/SHA256SUMS --clobber

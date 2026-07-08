@@ -24,6 +24,7 @@ extern char *MotorMove(int fd, char *tokenPtr);
 extern char *WaitMotion(int fd, char *tokenPtr);
 extern char *NightLight(int fd, char *tokenPtr);
 extern char *AudioPlay(int fd, char *tokenPtr);
+extern char *AudioTalk(int fd, char *tokenPtr);
 extern char *CurlConfig(int fd, char *tokenPtr);
 extern char *Timelapse(int fd, char *tokenPtr);
 extern char *MP4Write(int fd, char *tokenPtr);
@@ -53,6 +54,7 @@ struct CommandTableSt CommandTable[] = {
   { "waitMotion", &WaitMotion },
   { "night",      &NightLight },
   { "aplay",      &AudioPlay },
+  { "talk",       &AudioTalk },
   { "curl",       &CurlConfig },
   { "timelapse",  &Timelapse },
   { "mp4write",   &MP4Write },

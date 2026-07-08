@@ -216,6 +216,13 @@
             <SettingInput v-if="config.RTSP_AUTH === 'on'" i18n="RTSP.account" type="text" :titleOffset="2" v-model="config.RTSP_USER" />
             <SettingInput v-if="config.RTSP_AUTH === 'on'" i18n="RTSP.password" type="password" :titleOffset="2" v-model="config.RTSP_PASSWD" show-password />
           </div>
+          <h3 v-t="'talk.title'" />
+          <SettingSwitch i18n="talk.enable" v-model="config.ATOMTALK_ENABLE" />
+          <div v-if="config.ATOMTALK_ENABLE === 'on'">
+            <SettingInputNumber i18n="talk.port" :titleOffset="2" :span="3" v-model="config.ATOMTALK_PORT" :min="1" :max="65535" />
+            <SettingInputNumber i18n="talk.volume" :titleOffset="2" :span="3" v-model="config.ATOMTALK_VOLUME" :min="0" :max="100" />
+            <SettingInput i18n="talk.token" type="password" :titleOffset="2" :span="10" v-model="config.ATOMTALK_TOKEN" show-password />
+          </div>
         </ElTabPane>
 
         <!-- Event Webhook Tab -->
@@ -368,7 +375,7 @@
     data() {
       return {
         config: {
-          CONFIG_VER: '1.0.1',
+          CONFIG_VER: '1.0.3',
           appver: '', // ATOMCam app_ver (/atom/config/app.ver)
           ATOMHACKVER: '', // AtomHack Ver (/etc/atomhack.ver)
           PRODUCT_MODEL: '', // ATOMCam Model (/atom/configs/.product_config)
@@ -387,6 +394,11 @@
           RTSP_AUTH: 'off',
           RTSP_USER: '',
           RTSP_PASSWD: '',
+          ATOMTALK_ENABLE: 'off',
+          ATOMTALK_PORT: 4010,
+          ATOMTALK_VOLUME: 40,
+          ATOMTALK_IDLE_MS: 1500,
+          ATOMTALK_TOKEN: '',
           HOMEKIT_ENABLE: 'off',
           HOMEKIT_SETUP_ID: '',
           HOMEKIT_DEVICE_ID: '',
@@ -1303,6 +1315,9 @@
         this.RTSPRestart = false;
         if(Object.keys(this.config).some(prop => (prop.search(/WEBHOOK/) === 0) && (this.config[prop] !== this.oldConfig[prop]))) {
           execCmds.push('setwebhook');
+        }
+        if(Object.keys(this.config).some(prop => (prop.search(/ATOMTALK_/) === 0) && (this.config[prop] !== this.oldConfig[prop]))) {
+          execCmds.push('talk restart');
         }
         if((this.config.CRUISE !== this.oldConfig.CRUISE) ||
            (this.config.CRUISE_LIST !== this.oldConfig.CRUISE_LIST)) {

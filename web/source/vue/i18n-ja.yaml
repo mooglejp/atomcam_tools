@@ -239,6 +239,21 @@ RTSP:
     title: パスワード
     tooltip: RTSPのパスワードを設定します
 
+talk:
+  title: スピーカー送話
+  enable:
+    title: 送話daemon
+    tooltip: PC送話アプリからのUDP PCMをカメラのスピーカーへ出力します
+  port:
+    title: UDPポート
+    tooltip: PC送話アプリから接続するUDPポート
+  volume:
+    title: 音量
+    tooltip: カメラスピーカーの出力音量
+  token:
+    title: トークン
+    tooltip: 空欄の場合は同一LANからのUDP音声を認証なしで受け付けます。空白は使えません
+
 event:
   tab: イベント通知
   webhook:

@@ -553,6 +553,27 @@ RTSPのアカウントを設定します。
 
 RTSPのパスワードを設定します。
 
+### スピーカー送話
+
+PC側の送話アプリからUDPで送った8kHz/mono/S16LE PCMをカメラのスピーカーへ出力します。
+
+WebUIはdaemonの有効化、UDPポート、音量、トークンの設定だけを行います。音声データはWebUIを通らないため、ブラウザのマイク/HTTPS制約を避けられます。
+
+デフォルトではoffです。使用する場合は配信設定タブの「スピーカー送話」をonにして保存します。トークンを空欄にすると同一LANからのUDP音声を認証なしで受け付けるため、通常は空白を含まない任意のトークンを設定してください。
+
+PC側クライアントは `tools/atomtalk-client` にあります。Windows向けには次のようにビルドできます。
+
+```sh
+cd tools/atomtalk-client
+GOOS=windows GOARCH=amd64 go build -o atomtalk-client.exe .
+```
+
+実行例:
+
+```powershell
+.\atomtalk-client.exe -host 192.168.105.196 -token "your-token"
+```
+
 <br>
 
 ### イベント通知

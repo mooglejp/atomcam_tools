@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# atomtalkd
+#
+
+HACK_INI=/tmp/hack.ini
+
+get_ini() {
+  awk -F "=" -v key="$1" '$1 ~ "^[ \t]*" key "[ \t]*$" {print $2}' $HACK_INI 2>/dev/null | tr -d '\r' | sed 's/^[ \t]*//;s/[ \t]*$//'
+}
+
+start_atomtalk() {
+  [ "$(get_ini ATOMTALK_ENABLE)" = "on" ] || exit 0
+  pidof atomtalkd >/dev/null 2>&1 && exit 0
+
+  port=$(get_ini ATOMTALK_PORT)
+  volume=$(get_ini ATOMTALK_VOLUME)
+  idle=$(get_ini ATOMTALK_IDLE_MS)
+  token=$(get_ini ATOMTALK_TOKEN)
+  [ "$port" != "" ] || port=4010
+  [ "$volume" != "" ] || volume=40
+  [ "$idle" != "" ] || idle=1500
+
+  mkdir -p /tmp/log
+  if [ "$token" != "" ]; then
+    /usr/bin/atomtalkd -p "$port" -v "$volume" -i "$idle" -k "$token" >> /tmp/log/atomtalkd.log 2>&1 &
+  else
+    /usr/bin/atomtalkd -p "$port" -v "$volume" -i "$idle" >> /tmp/log/atomtalkd.log 2>&1 &
+  fi
+}
+
+stop_atomtalk() {
+  killall atomtalkd >/dev/null 2>&1
+  rm -f /tmp/atomtalk.pcm
+}
+
+case "$1" in
+  start)
+    start_atomtalk
+    ;;
+  stop)
+    stop_atomtalk
+    ;;
+  restart|reload)
+    stop_atomtalk
+    start_atomtalk
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+esac
+
+exit $?

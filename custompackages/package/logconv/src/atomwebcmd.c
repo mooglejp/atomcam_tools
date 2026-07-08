@@ -388,6 +388,11 @@ static void handle_line(char *line) {
     respond("%s %s OK", cmd, params);
     return;
   }
+  if(strcmp(cmd, "talk") == 0) {
+    run_system("/etc/init.d/S63atomtalk restart");
+    respond("%s %s OK", cmd, params);
+    return;
+  }
   if(strcmp(cmd, "cruise") == 0) {
     run_system("killall -9 cruise.sh >/dev/null 2>&1; /scripts/cruise.sh &");
     respond("%s %s OK", cmd, params);

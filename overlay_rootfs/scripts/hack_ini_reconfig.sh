@@ -90,6 +90,7 @@ if [ "$CONFIG_VER" = "" ] ; then
   }
   ' TIMELAPSE=$TIMELAPSE $HACK_INI > $HACK_INI.new
   mv $HACK_INI.new $HACK_INI
+  CONFIG_VER=1.0.0
 fi
 
 # Ver.1.0.1
@@ -134,6 +135,7 @@ if [ "$CONFIG_VER" = "1.0.0" ] ; then
   }
   ' $HACK_INI > $HACK_INI.new
   mv $HACK_INI.new $HACK_INI
+  CONFIG_VER=1.0.1
 fi
 
 # Ver.1.0.2
@@ -163,6 +165,39 @@ if [ "$CONFIG_VER" = "1.0.1" ] ; then
   }
   ' $HACK_INI > $HACK_INI.new
   mv $HACK_INI.new $HACK_INI
+  CONFIG_VER=1.0.2
+fi
+
+# Ver.1.0.3
+if [ "$CONFIG_VER" = "1.0.2" ] ; then
+  cp $HACK_INI ${HACK_INI}_1_0_2.bak
+  rm -f $HACK_INI.new
+  awk -F "=" '
+  BEGIN {
+    printf("CONFIG_VER=1.0.3\n");
+  }
+
+  /^CONFIG_VER *=/ {
+    next;
+  }
+
+  {
+    key = $1;
+    gsub(/[ \t]/, "", key);
+    seen[key] = 1;
+    print $0;
+  }
+
+  END {
+    if(!seen["ATOMTALK_ENABLE"]) printf("ATOMTALK_ENABLE=off\n");
+    if(!seen["ATOMTALK_PORT"]) printf("ATOMTALK_PORT=4010\n");
+    if(!seen["ATOMTALK_VOLUME"]) printf("ATOMTALK_VOLUME=40\n");
+    if(!seen["ATOMTALK_IDLE_MS"]) printf("ATOMTALK_IDLE_MS=1500\n");
+    if(!seen["ATOMTALK_TOKEN"]) printf("ATOMTALK_TOKEN=\n");
+  }
+  ' $HACK_INI > $HACK_INI.new
+  mv $HACK_INI.new $HACK_INI
+  CONFIG_VER=1.0.3
 fi
 
 ISP_CONF=/media/mmc/video_isp.conf

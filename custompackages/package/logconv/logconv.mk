@@ -21,6 +21,7 @@ define LOGCONV_INSTALL_TARGET_CMDS
 	$(INSTALL) -D -m 0755 $(@D)/src/atomwebcmd $(TARGET_DIR)/usr/bin
 	$(INSTALL) -D -m 0755 $(@D)/src/atomhookd $(TARGET_DIR)/usr/bin
 	$(INSTALL) -D -m 0755 $(@D)/src/atomrecpostd $(TARGET_DIR)/usr/bin
+	$(INSTALL) -D -m 0755 $(@D)/src/atomtalkd $(TARGET_DIR)/usr/bin
 endef
 
 $(eval $(generic-package))

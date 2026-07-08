@@ -238,6 +238,21 @@ RTSP:
     title: Password
     tooltip: set RTSP password
 
+talk:
+  title: Speaker talk
+  enable:
+    title: Talk daemon
+    tooltip: Play UDP PCM from the PC talk client through the camera speaker
+  port:
+    title: UDP port
+    tooltip: UDP port used by the PC talk client
+  volume:
+    title: Volume
+    tooltip: Camera speaker output volume
+  token:
+    title: Token
+    tooltip: When empty, UDP audio from the same LAN is accepted without authentication. Spaces are not allowed
+
 event:
   tab: Notification
   title: WebHook
