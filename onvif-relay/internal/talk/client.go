@@ -46,10 +46,8 @@ func (c *Client) Stream(ctx context.Context, r io.Reader) error {
 	defer conn.Close()
 	defer c.sendStop(conn)
 
-	if c.token != "" {
-		if err := c.sendControl(conn, ""); err != nil {
-			return err
-		}
+	if err := c.sendControl(conn, ""); err != nil {
+		return err
 	}
 
 	buf := make([]byte, defaultFrameBytes)
@@ -89,10 +87,6 @@ func (c *Client) sendControl(conn *net.UDPConn, command string) error {
 	}
 	if _, err := conn.Write([]byte(line + "\n")); err != nil {
 		return fmt.Errorf("send talk control: %w", err)
-	}
-
-	if c.token == "" {
-		return nil
 	}
 
 	_ = conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
