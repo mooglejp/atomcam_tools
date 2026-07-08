@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -23,7 +24,7 @@ const (
 func defaultFormat() string {
 	switch runtime.GOOS {
 	case "windows":
-		return "wasapi"
+		return "dshow"
 	case "darwin":
 		return "avfoundation"
 	default:
@@ -70,6 +71,69 @@ func buildFFmpegArgs(format, input, extra string) []string {
 	return args
 }
 
+func resolveCaptureInput(ffmpegPath, format, input string) (string, string, error) {
+	if runtime.GOOS != "windows" {
+		return format, input, nil
+	}
+
+	if strings.EqualFold(format, "auto") {
+		format = "dshow"
+		input = "default"
+	}
+	if !strings.EqualFold(format, "dshow") || input != "default" {
+		return format, input, nil
+	}
+
+	device, err := firstDShowAudioDevice(ffmpegPath)
+	if err != nil {
+		return "", "", err
+	}
+	return "dshow", "audio=" + device, nil
+}
+
+func firstDShowAudioDevice(ffmpegPath string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, ffmpegPath, "-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy")
+	output, _ := cmd.CombinedOutput()
+	if device, ok := parseFirstDShowAudioDevice(string(output)); ok {
+		return device, nil
+	}
+	if ctx.Err() != nil {
+		return "", fmt.Errorf("ffmpeg DirectShow device listing timed out")
+	}
+	return "", fmt.Errorf("failed to find a DirectShow audio device; run `ffmpeg -list_devices true -f dshow -i dummy` and pass -input \"audio=<device name>\"")
+}
+
+func parseFirstDShowAudioDevice(output string) (string, bool) {
+	inAudioDevices := false
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "DirectShow audio devices") {
+			inAudioDevices = true
+			continue
+		}
+		if strings.Contains(line, "DirectShow video devices") {
+			inAudioDevices = false
+			continue
+		}
+		if !inAudioDevices || strings.Contains(line, "Alternative name") {
+			continue
+		}
+		first := strings.IndexByte(line, '"')
+		if first < 0 {
+			continue
+		}
+		rest := line[first+1:]
+		last := strings.IndexByte(rest, '"')
+		if last <= 0 {
+			continue
+		}
+		return rest[:last], true
+	}
+	return "", false
+}
+
 func sendControl(conn *net.UDPConn, token, command string) {
 	var line string
 	if token != "" {
@@ -101,6 +165,9 @@ func run() error {
 		host       = flag.String("host", "", "camera IP address or host name")
 		port       = flag.Int("port", 4010, "camera atomtalkd UDP port")
 		token      = flag.String("token", "", "optional atomtalkd token")
+		relayURL   = flag.String("relay-url", "", "optional ONVIF relay talk URL, e.g. http://relay:8080/talk/camera1")
+		relayUser  = flag.String("relay-user", "", "ONVIF relay basic auth username")
+		relayPass  = flag.String("relay-pass", "", "ONVIF relay basic auth password")
 		ffmpegPath = flag.String("ffmpeg", "ffmpeg", "ffmpeg executable path")
 		format     = flag.String("format", defaultFormat(), "ffmpeg input format")
 		input      = flag.String("input", defaultInput(), "ffmpeg input device")
@@ -109,8 +176,8 @@ func run() error {
 	)
 	flag.Parse()
 
-	if *host == "" {
-		return fmt.Errorf("-host is required")
+	if *host == "" && *relayURL == "" {
+		return fmt.Errorf("either -host or -relay-url is required")
 	}
 	if *port <= 0 || *port > 65535 {
 		return fmt.Errorf("-port must be between 1 and 65535")
@@ -127,26 +194,15 @@ func run() error {
 		return fmt.Errorf("computed frame size %d is outside safe UDP payload size", frameBytes)
 	}
 
-	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", *host, *port))
-	if err != nil {
-		return err
-	}
-	conn, err := net.DialUDP("udp", nil, addr)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	if *token != "" {
-		sendControl(conn, *token, "")
-		readOptionalReply(conn)
+	captureFormat, captureInput, err := resolveCaptureInput(*ffmpegPath, *format, *input)
+	if err != nil {
+		return err
 	}
-	defer sendControl(conn, *token, "STOP")
 
-	args := buildFFmpegArgs(*format, *input, *extraArgs)
+	args := buildFFmpegArgs(captureFormat, captureInput, *extraArgs)
 	cmd := exec.CommandContext(ctx, *ffmpegPath, args...)
 	cmd.Stderr = os.Stderr
 	stdout, err := cmd.StdoutPipe()
@@ -157,29 +213,97 @@ func run() error {
 		return err
 	}
 
-	frame := make([]byte, frameBytes)
-	for {
-		n, readErr := io.ReadFull(stdout, frame)
-		if n > 0 {
-			if _, err := conn.Write(frame[:n]); err != nil {
-				_ = cmd.Process.Kill()
-				return err
-			}
-		}
-		if readErr == nil {
-			continue
-		}
-		if ctx.Err() != nil || readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
-			break
-		}
+	var streamErr error
+	if *relayURL != "" {
+		streamErr = streamHTTP(ctx, stdout, *relayURL, *relayUser, *relayPass, frameBytes)
+	} else {
+		streamErr = streamUDP(ctx, stdout, *host, *port, *token, frameBytes)
+	}
+	if streamErr != nil {
 		_ = cmd.Process.Kill()
-		return readErr
+		return streamErr
 	}
 
 	if err := cmd.Wait(); err != nil && ctx.Err() == nil {
 		return err
 	}
 	return nil
+}
+
+func streamUDP(ctx context.Context, r io.Reader, host string, port int, token string, frameBytes int) error {
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return err
+	}
+	conn, err := net.DialUDP("udp", nil, addr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if token != "" {
+		sendControl(conn, token, "")
+		readOptionalReply(conn)
+	}
+	defer sendControl(conn, token, "STOP")
+
+	frame := make([]byte, frameBytes)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		n, readErr := io.ReadFull(r, frame)
+		if n > 0 {
+			if _, err := conn.Write(frame[:n]); err != nil {
+				return err
+			}
+		}
+		if readErr == nil {
+			continue
+		}
+		if readErr == io.EOF || readErr == io.ErrUnexpectedEOF {
+			return nil
+		}
+		return readErr
+	}
+}
+
+func streamHTTP(ctx context.Context, r io.Reader, relayURL, username, password string, frameBytes int) error {
+	pr, pw := io.Pipe()
+	copyDone := make(chan error, 1)
+	go func() {
+		_, err := io.CopyBuffer(pw, r, make([]byte, frameBytes))
+		if closeErr := pw.CloseWithError(err); err == nil {
+			err = closeErr
+		}
+		copyDone <- err
+	}()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, relayURL, pr)
+	if err != nil {
+		_ = pw.Close()
+		return err
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	if username != "" || password != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		_ = pr.Close()
+		_ = pw.Close()
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		_ = pr.Close()
+		_ = pw.Close()
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("relay returned %s: %s", resp.Status, string(body))
+	}
+
+	return <-copyDone
 }
 
 func main() {

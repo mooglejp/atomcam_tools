@@ -21,17 +21,33 @@ Install `ffmpeg.exe` and keep it in `PATH`, then run:
 .\atomtalk-client.exe -host 192.168.105.196 -token "your-token"
 ```
 
-The default Windows capture path uses ffmpeg's WASAPI input:
+To send through `onvif-relay` instead of directly to the camera:
 
 ```powershell
-ffmpeg -f wasapi -i default ...
+.\atomtalk-client.exe `
+  -relay-url http://192.168.1.10:8080/talk/living-room `
+  -relay-user onvif_user `
+  -relay-pass onvif_password
 ```
 
-If your ffmpeg build does not support WASAPI, use DirectShow and pass the device name:
+The default Windows capture path uses ffmpeg's DirectShow input and auto-selects the first audio capture device:
+
+```powershell
+ffmpeg -list_devices true -f dshow -i dummy
+ffmpeg -f dshow -i "audio=<first audio device>" ...
+```
+
+To pass the device name yourself:
 
 ```powershell
 ffmpeg -list_devices true -f dshow -i dummy
 .\atomtalk-client.exe -host 192.168.105.196 -format dshow -input 'audio=Microphone (USB Audio Device)'
+```
+
+If your ffmpeg build supports WASAPI and you prefer it:
+
+```powershell
+.\atomtalk-client.exe -host 192.168.105.196 -format wasapi -input default
 ```
 
 Use `Ctrl+C` to stop. The client sends an `ATOMTALK STOP` control packet before exiting.

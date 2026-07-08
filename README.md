@@ -574,6 +574,8 @@ GOOS=windows GOARCH=amd64 go build -o atomtalk-client.exe .
 .\atomtalk-client.exe -host 192.168.105.196 -token "your-token"
 ```
 
+ONVIF relay経由で送話する場合は、同梱の `onvif-relay/` を起動し、relayの設定で対象カメラの `talk.enabled` と `talk.token` を設定します。PC側クライアントは `-relay-url http://<relay>:8080/talk/<camera>` を指定して送信できます。
+
 <br>
 
 ### イベント通知
