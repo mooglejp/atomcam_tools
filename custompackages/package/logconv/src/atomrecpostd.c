@@ -19,6 +19,8 @@ struct config {
   int record_event;
   int record_upload;
   int insecure;
+  int upload_delay_sec;
+  int upload_target_sec;
   char webhook_url[512];
   char upload_url[512];
 };
@@ -51,6 +53,16 @@ static void copy_str(char *dst, size_t dst_size, const char *src) {
   dst[i] = '\0';
 }
 
+static int parse_nonnegative_int(const char *s, int fallback, int max) {
+  if(!s || !*s) return fallback;
+  char *end = NULL;
+  long v = strtol(s, &end, 10);
+  while(end && (*end == ' ' || *end == '\t')) end++;
+  if(end == s || (end && *end) || v < 0) return fallback;
+  if(v > max) return max;
+  return (int)v;
+}
+
 static void log_msg(const char *fmt, ...) {
   FILE *fp = fopen("/tmp/log/record_upload.log", "a");
   if(!fp) return;
@@ -80,6 +92,8 @@ static void load_config(struct config *cfg) {
     else if(strcmp(line, "WEBHOOK_RECORD_EVENT") == 0) cfg->record_event = strcmp(eq, "on") == 0;
     else if(strcmp(line, "WEBHOOK_RECORD_UPLOAD") == 0) cfg->record_upload = strcmp(eq, "on") == 0;
     else if(strcmp(line, "WEBHOOK_RECORD_UPLOAD_URL") == 0) copy_str(cfg->upload_url, sizeof(cfg->upload_url), eq);
+    else if(strcmp(line, "WEBHOOK_RECORD_UPLOAD_DELAY_SEC") == 0) cfg->upload_delay_sec = parse_nonnegative_int(eq, 0, 3600);
+    else if(strcmp(line, "WEBHOOK_RECORD_UPLOAD_TARGET_SEC") == 0) cfg->upload_target_sec = parse_nonnegative_int(eq, 0, 3600);
   }
   fclose(fp);
 
@@ -246,7 +260,12 @@ static void post_record_file(const struct config *cfg, const char *path) {
   char header[640];
   snprintf(header, sizeof(header), "x-video-name: %s\r\n", clean_path);
 
-  log_msg("POST %s %s", iso, path);
+  if(cfg->upload_delay_sec > 0) {
+    log_msg("POST delay %ds path=%s", cfg->upload_delay_sec, path);
+    sleep((unsigned int)cfg->upload_delay_sec);
+  }
+
+  log_msg("POST %s %s target_sec=%d", iso, path, cfg->upload_target_sec);
   pid_t pid = fork();
   if(pid != 0) {
     int rc = pid > 0 ? wait_child(pid) : -1;
@@ -254,28 +273,57 @@ static void post_record_file(const struct config *cfg, const char *path) {
     return;
   }
 
-  execlp("ffmpeg", "ffmpeg",
-         "-nostdin",
-         "-hide_banner",
-         "-loglevel", "error",
-         "-fflags", "+genpts",
-         "-i", path,
-         "-threads", "1",
-         "-c:v", "copy",
-         "-fflags", "+genpts",
-         "-avoid_negative_ts", "make_zero",
-         "-c:a", "pcm_mulaw",
-         "-ar", "8000",
-         "-ac", "1",
-         "-metadata", metadata,
-         "-movflags", "frag_keyframe+empty_moov+default_base_moof",
-         "-f", "mov",
-         "-method", "POST",
-         "-content_type", "video/quicktime",
-         "-headers", header,
-         "-rw_timeout", "120000000",
-         cfg->upload_url,
-         (char *)NULL);
+  char readrate[32];
+  char *argv[48];
+  int i = 0;
+  argv[i++] = "ffmpeg";
+  argv[i++] = "-nostdin";
+  argv[i++] = "-hide_banner";
+  argv[i++] = "-loglevel";
+  argv[i++] = "error";
+  argv[i++] = "-fflags";
+  argv[i++] = "+genpts";
+  if(cfg->upload_target_sec > 0) {
+    double rate = 60.0 / (double)cfg->upload_target_sec;
+    if(rate < 0.001) rate = 0.001;
+    if(rate > 100.0) rate = 100.0;
+    snprintf(readrate, sizeof(readrate), "%.3f", rate);
+    argv[i++] = "-readrate";
+    argv[i++] = readrate;
+  }
+  argv[i++] = "-i";
+  argv[i++] = (char *)path;
+  argv[i++] = "-threads";
+  argv[i++] = "1";
+  argv[i++] = "-c:v";
+  argv[i++] = "copy";
+  argv[i++] = "-fflags";
+  argv[i++] = "+genpts";
+  argv[i++] = "-avoid_negative_ts";
+  argv[i++] = "make_zero";
+  argv[i++] = "-c:a";
+  argv[i++] = "pcm_mulaw";
+  argv[i++] = "-ar";
+  argv[i++] = "8000";
+  argv[i++] = "-ac";
+  argv[i++] = "1";
+  argv[i++] = "-metadata";
+  argv[i++] = metadata;
+  argv[i++] = "-movflags";
+  argv[i++] = "frag_keyframe+empty_moov+default_base_moof";
+  argv[i++] = "-f";
+  argv[i++] = "mov";
+  argv[i++] = "-method";
+  argv[i++] = "POST";
+  argv[i++] = "-content_type";
+  argv[i++] = "video/quicktime";
+  argv[i++] = "-headers";
+  argv[i++] = header;
+  argv[i++] = "-rw_timeout";
+  argv[i++] = "120000000";
+  argv[i++] = (char *)cfg->upload_url;
+  argv[i++] = NULL;
+  execvp("ffmpeg", argv);
   _exit(127);
 }
 

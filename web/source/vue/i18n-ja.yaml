@@ -238,6 +238,9 @@ RTSP:
   password:
     title: パスワード
     tooltip: RTSPのパスワードを設定します
+  dscp:
+    title: DSCP
+    tooltip: RTSP/RTP送信パケットに設定するDSCP値です。46はEF、0はBest Effortです
 
 talk:
   title: スピーカー送話
@@ -299,6 +302,12 @@ event:
     recordingUploadURL:
       title: POST先URL
       tooltip: 未指定の場合は通知URLを使います
+    recordingUploadDelay:
+      title: POST遅延秒
+      tooltip: 録画完了からPOST開始まで待つ秒数。0で遅延なし
+    recordingUploadTarget:
+      title: POST送信秒
+      tooltip: 1分定常録画のPOST送信にかける目安秒数。30で約30秒、0で制限なし
     startTimelapse:
       title: タイムラプス開始
       tooltip: タイムラプス開始を通知します

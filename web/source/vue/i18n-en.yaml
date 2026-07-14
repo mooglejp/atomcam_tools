@@ -237,6 +237,9 @@ RTSP:
   password:
     title: Password
     tooltip: set RTSP password
+  dscp:
+    title: DSCP
+    tooltip: DSCP value for RTSP/RTP packets. 46 is EF, 0 is Best Effort.
 
 talk:
   title: Speaker talk
@@ -300,6 +303,12 @@ event:
     recordingUploadURL:
       title: POST URL
       tooltip: Uses the notification URL when left blank
+    recordingUploadDelay:
+      title: POST Delay Sec
+      tooltip: Seconds to wait after recording completion before starting the POST. 0 disables delay
+    recordingUploadTarget:
+      title: POST Send Sec
+      tooltip: Approximate seconds to spend POSTing a one-minute regular recording. 30 sends in about 30 seconds; 0 disables throttling
     startTimelapse:
       title: Start Time lapse
       tooltip: Notify on time lapse start

@@ -65,6 +65,11 @@ RTSP_OVER_HTTP=$(get_ini RTSP_OVER_HTTP)
 RTSP_AUTH=$(get_ini RTSP_AUTH)
 RTSP_USER=$(get_ini RTSP_USER)
 RTSP_PASSWD=$(get_ini RTSP_PASSWD)
+RTSP_DSCP=$(get_ini RTSP_DSCP)
+case "$RTSP_DSCP" in
+  ""|*[!0-9]*) RTSP_DSCP=46 ;;
+esac
+[ "$RTSP_DSCP" -gt 63 ] && RTSP_DSCP=63
 
 if [ "$1" = "watchdog" ]; then
   [ "$RTSP_VIDEO0" = "on" -o "$RTSP_VIDEO1" = "on" -o "$RTSP_VIDEO2" = "on" ] || exit 0
@@ -73,7 +78,7 @@ fi
 if ! pidof v4l2rtspserver > /dev/null ; then
   [ "$1" != "on" -a "$1" != "restart" -a "$1" != "watchdog" -a "$RTSP_VIDEO0" != "on" -a "$RTSP_VIDEO1" != "on" -a "$RTSP_VIDEO2" != "on" ] && exit 0
 
-  log "RTSP Restart video0=$RTSP_VIDEO0 audio0=$RTSP_AUDIO0 video1=$RTSP_VIDEO1 audio1=$RTSP_AUDIO1 video2=$RTSP_VIDEO2 audio2=$RTSP_AUDIO2"
+  log "RTSP Restart video0=$RTSP_VIDEO0 audio0=$RTSP_AUDIO0 video1=$RTSP_VIDEO1 audio1=$RTSP_AUDIO1 video2=$RTSP_VIDEO2 audio2=$RTSP_AUDIO2 dscp=$RTSP_DSCP"
 
   cmd_log video 0 $RTSP_VIDEO0
   cmd_log video 1 $RTSP_VIDEO1
@@ -114,8 +119,8 @@ if ! pidof v4l2rtspserver > /dev/null ; then
       exit 1
     fi
     sleep 2
-    log "exec /usr/bin/v4l2rtspserver $option -C 1 -a S16_LE $path"
-    /usr/bin/v4l2rtspserver $option -C 1 -a S16_LE $path >> /tmp/log/rtspserver.log 2>&1 &
+    log "exec LIVE555_DSCP=$RTSP_DSCP /usr/bin/v4l2rtspserver $option -C 1 -a S16_LE $path"
+    LIVE555_DSCP=$RTSP_DSCP /usr/bin/v4l2rtspserver $option -C 1 -a S16_LE $path >> /tmp/log/rtspserver.log 2>&1 &
   fi
   count=0
   while [ "`pidof v4l2rtspserver`" = "" ]; do

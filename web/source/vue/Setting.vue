@@ -215,6 +215,7 @@
             <SettingSwitch i18n="RTSP.auth" v-model="config.RTSP_AUTH" />
             <SettingInput v-if="config.RTSP_AUTH === 'on'" i18n="RTSP.account" type="text" :titleOffset="2" v-model="config.RTSP_USER" />
             <SettingInput v-if="config.RTSP_AUTH === 'on'" i18n="RTSP.password" type="password" :titleOffset="2" v-model="config.RTSP_PASSWD" show-password />
+            <SettingInputNumber i18n="RTSP.dscp" :titleOffset="2" :span="3" v-model="config.RTSP_DSCP" :min="0" :max="63" />
           </div>
           <h3 v-t="'talk.title'" />
           <SettingSwitch i18n="talk.enable" v-model="config.ATOMTALK_ENABLE" />
@@ -239,6 +240,8 @@
           <SettingSwitch i18n="event.webhook.recordingSave" v-model="config.WEBHOOK_RECORD_EVENT" />
           <SettingSwitch i18n="event.webhook.recordingUpload" v-model="config.WEBHOOK_RECORD_UPLOAD" />
           <SettingInput v-if="config.WEBHOOK_RECORD_UPLOAD === 'on'" i18n="event.webhook.recordingUploadURL" :titleOffset="2" :span="10" type="text" v-model="config.WEBHOOK_RECORD_UPLOAD_URL" />
+          <SettingInputNumber v-if="config.WEBHOOK_RECORD_UPLOAD === 'on'" i18n="event.webhook.recordingUploadDelay" :titleOffset="2" :span="3" v-model="config.WEBHOOK_RECORD_UPLOAD_DELAY_SEC" :min="0" :max="3600" />
+          <SettingInputNumber v-if="config.WEBHOOK_RECORD_UPLOAD === 'on'" i18n="event.webhook.recordingUploadTarget" :titleOffset="2" :span="3" v-model="config.WEBHOOK_RECORD_UPLOAD_TARGET_SEC" :min="0" :max="3600" />
           <SettingSwitch i18n="event.webhook.startTimelapse" v-model="config.WEBHOOK_TIMELAPSE_START" />
           <SettingSwitch i18n="event.webhook.recordTimelapse" v-model="config.WEBHOOK_TIMELAPSE_EVENT" />
           <SettingSwitch i18n="event.webhook.endTimeLapse" v-model="config.WEBHOOK_TIMELAPSE_FINISH" />
@@ -375,7 +378,7 @@
     data() {
       return {
         config: {
-          CONFIG_VER: '1.0.3',
+          CONFIG_VER: '1.0.4',
           appver: '', // ATOMCam app_ver (/atom/config/app.ver)
           ATOMHACKVER: '', // AtomHack Ver (/etc/atomhack.ver)
           PRODUCT_MODEL: '', // ATOMCam Model (/atom/configs/.product_config)
@@ -394,6 +397,7 @@
           RTSP_AUTH: 'off',
           RTSP_USER: '',
           RTSP_PASSWD: '',
+          RTSP_DSCP: 46,
           ATOMTALK_ENABLE: 'off',
           ATOMTALK_PORT: 4010,
           ATOMTALK_VOLUME: 40,
@@ -454,6 +458,8 @@
           WEBHOOK_RECORD_EVENT: 'off',
           WEBHOOK_RECORD_UPLOAD: 'off',
           WEBHOOK_RECORD_UPLOAD_URL: '',
+          WEBHOOK_RECORD_UPLOAD_DELAY_SEC: 0,
+          WEBHOOK_RECORD_UPLOAD_TARGET_SEC: 0,
           WEBHOOK_TIMELAPSE_START: 'off',
           WEBHOOK_TIMELAPSE_EVENT: 'off',
           WEBHOOK_TIMELAPSE_FINISH: 'off',
@@ -1302,6 +1308,7 @@
              (this.config.RTSP_AUTH !== this.oldConfig.RTSP_AUTH) ||
              (this.config.RTSP_USER !== this.oldConfig.RTSP_USER) ||
              (this.config.RTSP_PASSWD !== this.oldConfig.RTSP_PASSWD) ||
+             (this.config.RTSP_DSCP !== this.oldConfig.RTSP_DSCP) ||
              (this.config.RTSP_VIDEO0 !== this.oldConfig.RTSP_VIDEO0) ||
              (this.config.RTSP_VIDEO1 !== this.oldConfig.RTSP_VIDEO1) ||
              (this.config.RTSP_VIDEO2 !== this.oldConfig.RTSP_VIDEO2) ||

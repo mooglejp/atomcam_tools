@@ -200,6 +200,36 @@ if [ "$CONFIG_VER" = "1.0.2" ] ; then
   CONFIG_VER=1.0.3
 fi
 
+# Ver.1.0.4
+if [ "$CONFIG_VER" = "1.0.3" ] ; then
+  cp $HACK_INI ${HACK_INI}_1_0_3.bak
+  rm -f $HACK_INI.new
+  awk -F "=" '
+  BEGIN {
+    printf("CONFIG_VER=1.0.4\n");
+  }
+
+  /^CONFIG_VER *=/ {
+    next;
+  }
+
+  {
+    key = $1;
+    gsub(/[ \t]/, "", key);
+    seen[key] = 1;
+    print $0;
+  }
+
+  END {
+    if(!seen["WEBHOOK_RECORD_UPLOAD_DELAY_SEC"]) printf("WEBHOOK_RECORD_UPLOAD_DELAY_SEC=0\n");
+    if(!seen["WEBHOOK_RECORD_UPLOAD_TARGET_SEC"]) printf("WEBHOOK_RECORD_UPLOAD_TARGET_SEC=0\n");
+    if(!seen["RTSP_DSCP"]) printf("RTSP_DSCP=46\n");
+  }
+  ' $HACK_INI > $HACK_INI.new
+  mv $HACK_INI.new $HACK_INI
+  CONFIG_VER=1.0.4
+fi
+
 ISP_CONF=/media/mmc/video_isp.conf
 if [ -f $ISP_CONF ] ; then
   ISP_CONF_VER=$(awk -F "=" '/ver *=/ {print $2}' $ISP_CONF)
