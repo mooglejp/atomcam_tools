@@ -1,17 +1,10 @@
 diff --git a/groupsock/GroupsockHelper.cpp b/groupsock/GroupsockHelper.cpp
 --- a/groupsock/GroupsockHelper.cpp
 +++ b/groupsock/GroupsockHelper.cpp
-@@ -47,11 +47,33 @@
- #include <net/if.h>
- #endif
- #include <stdio.h>
+@@ -21 +21,2 @@
+ #include "GroupsockHelper.hh"
 +#include <stdlib.h>
- 
- // By default, use INADDR_ANY for the sending and receiving interfaces (IPv4 only):
- ipv4AddressBits SendingInterfaceAddr = INADDR_ANY;
- ipv4AddressBits ReceivingInterfaceAddr = INADDR_ANY;
- in6_addr ReceivingInterfaceAddr6 = IN6ADDR_ANY_INIT;
-+
+@@ -55,2 +56,22 @@
 +static void setSocketDscpFromEnv(int socket, int domain) {
 +  char const* value = getenv("LIVE555_DSCP");
 +  if (value == NULL || value[0] == 0) return;
@@ -34,8 +27,7 @@ diff --git a/groupsock/GroupsockHelper.cpp b/groupsock/GroupsockHelper.cpp
 +}
  #ifdef SO_BINDTODEVICE
  char InterfaceBindToDevice[128] = {0};
- #endif
-@@ -122,6 +144,7 @@
+@@ -122,6 +143,7 @@
      socketErr(env, "unable to create datagram socket: ");
      return newSocket;
    }
@@ -43,7 +35,7 @@ diff --git a/groupsock/GroupsockHelper.cpp b/groupsock/GroupsockHelper.cpp
  
  #ifdef SO_BINDTODEVICE
    if (InterfaceBindToDevice[0] != '\0') {
-@@ -315,6 +338,7 @@
+@@ -315,6 +337,7 @@
      socketErr(env, "unable to create stream socket: ");
      return newSocket;
    }
@@ -51,7 +43,7 @@ diff --git a/groupsock/GroupsockHelper.cpp b/groupsock/GroupsockHelper.cpp
  
  #ifdef SO_BINDTODEVICE
    if (InterfaceBindToDevice[0] != '\0') {
-@@ -488,6 +512,7 @@
+@@ -488,6 +511,7 @@
  }
  
  void ignoreSigPipeOnSocket(int socketNum) {
