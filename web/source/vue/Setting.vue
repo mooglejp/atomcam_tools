@@ -281,6 +281,10 @@
           <SettingSwitch i18n="motionDetect.sensorPeriod" v-model="config.MINIMIZE_ALARM_CYCLE" />
           <SettingSwitch i18n="motionDetect.uploadStop" v-model="config.AWS_VIDEO_DISABLE" />
 
+          <h3 v-t="'profile.title'" />
+          <SettingSelect i18n="profile.mode" v-model="selectedProfile" :label="profileLabels" />
+          <SettingButton i18n="profile.apply" @click="ApplyProfile" />
+
           <h3 v-t="'videoSpec.title'" />
           <SettingInputNumber i18n="videoSpec.frameRate" :withSwitch="true" :defaultValue="20" :span="3" v-model="config.FRAMERATE" :min="1" :max="30" />
           <SettingInputNumber i18n="videoSpec.bitrateMain" :withSwitch="true" :span="3" v-model="config.BITRATE_MAIN_AVC" :min="300" :max="2000" />
@@ -316,10 +320,31 @@
           <SettingSchedule v-if="config.REBOOT === 'on'" v-model="reboot" />
           <SettingDangerButton i18n="reboot.reboot" icon="el-icon-refresh-left" @click="DoReboot" />
         </ElTabPane>
+
+        <!-- Diagnostics Tab -->
+        <ElTabPane name="diagnostics" class="well-transparent container-no-submit" :label="$t('diagnostics.tab')">
+          <h3 v-t="'diagnostics.title'" />
+          <SettingButton i18n="diagnostics.refresh" @click="LoadDiagnostics" />
+          <div class="diagnostics-updated">
+            {{ diagnostics.updated }}
+          </div>
+          <div v-for="section in diagnostics.sections" :key="section.name" class="diagnostics-section">
+            <h4>{{ DiagnosticsSectionTitle(section.name) }}</h4>
+            <table v-if="section.kv.length" class="diagnostics-table">
+              <tbody>
+                <tr v-for="item in section.kv" :key="`${section.name}-${item.key}`">
+                  <th>{{ item.key }}</th>
+                  <td>{{ item.value }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <pre v-if="section.lines.length" class="diagnostics-pre">{{ section.lines.join('\n') }}</pre>
+          </div>
+        </ElTabPane>
       </ElTabs>
     </div>
 
-    <div v-if="selectedTabIndex >= 3" class="submit">
+    <div v-if="(selectedTabIndex >= 3) && (selectedTab !== 'diagnostics')" class="submit">
       <ElButton @click="Submit" type="primary" v-t="'submit'" />
     </div>
     <ElDrawer :visible.sync="drawerVisible" direction="btt" :show-close="drawerClosable" :wrapperClosable="drawerClosable" :close-on-press-escape="drawerClosable" @closed="drawerClosable=false">
@@ -530,6 +555,12 @@
         timelapseInfo: {
           busy: false,
           abort: false,
+        },
+        selectedProfile: 'rtspPost',
+        profileLabels: ['normal', 'rtspPost', 'lowLoad', 'quality'],
+        diagnostics: {
+          updated: '',
+          sections: [],
         },
         rtspRestart: false,
         cruiseList: [],
@@ -980,10 +1011,111 @@
         }, {});
         this.latestVer = status.LATESTVER;
       },
+      ApplyProfile() {
+        const common = {
+          normal: {
+            FRAMERATE: 20,
+            BITRATE_MAIN_AVC: 960,
+            BITRATE_MAIN_HEVC: -800,
+            BITRATE_SUB_HEVC: -180,
+            PERIODICREC_SKIP_JPEG: 'off',
+            WEBHOOK_RECORD_UPLOAD_DELAY_SEC: 0,
+            WEBHOOK_RECORD_UPLOAD_TARGET_SEC: 0,
+            RTSP_DSCP: 46,
+          },
+          rtspPost: {
+            FRAMERATE: 15,
+            BITRATE_MAIN_AVC: 960,
+            BITRATE_MAIN_HEVC: 960,
+            BITRATE_SUB_HEVC: -180,
+            PERIODICREC_SKIP_JPEG: 'on',
+            WEBHOOK_RECORD_UPLOAD_DELAY_SEC: 0,
+            WEBHOOK_RECORD_UPLOAD_TARGET_SEC: 30,
+            RTSP_DSCP: 46,
+          },
+          lowLoad: {
+            FRAMERATE: 12,
+            BITRATE_MAIN_AVC: 700,
+            BITRATE_MAIN_HEVC: 700,
+            BITRATE_SUB_HEVC: 120,
+            PERIODICREC_SKIP_JPEG: 'on',
+            WEBHOOK_RECORD_UPLOAD_DELAY_SEC: 0,
+            WEBHOOK_RECORD_UPLOAD_TARGET_SEC: 60,
+            RTSP_DSCP: 46,
+          },
+          quality: {
+            FRAMERATE: 20,
+            BITRATE_MAIN_AVC: 1600,
+            BITRATE_MAIN_HEVC: 1600,
+            BITRATE_SUB_HEVC: 320,
+            PERIODICREC_SKIP_JPEG: 'off',
+            WEBHOOK_RECORD_UPLOAD_DELAY_SEC: 0,
+            WEBHOOK_RECORD_UPLOAD_TARGET_SEC: 0,
+            RTSP_DSCP: 46,
+          },
+        };
+        const patch = Object.assign({}, common[this.selectedProfile] || common.normal);
+        if(this.selectedProfile === 'rtspPost') {
+          if(this.distributor === 'ATOM') {
+            patch.RTSP_VIDEO2 = 'on';
+            patch.RTSP_AUDIO2 = 'S16_BE';
+          } else {
+            patch.RTSP_VIDEO0 = 'on';
+            patch.RTSP_AUDIO0 = 'S16_BE';
+          }
+        }
+        Object.keys(patch).forEach(key => {
+          if(this.config[key] != null) this.$set(this.config, key, patch[key]);
+        });
+      },
+      async LoadDiagnostics() {
+        const res = await axios.get(`./cgi-bin/diagnostics.cgi?timestamp=${new Date().valueOf()}`).catch(err => {
+          // eslint-disable-next-line no-console
+          console.log('axios.get ./cgi-bin/diagnostics.cgi', err);
+          return { data: '' };
+        });
+        const sections = [];
+        let section = null;
+        `${res.data || ''}`.split('\n').forEach(line => {
+          if(!line) return;
+          const pos = line.indexOf('=');
+          if(pos < 0) return;
+          const key = line.slice(0, pos);
+          const value = line.slice(pos + 1);
+          if(key === 'SECTION') {
+            section = {
+              name: value,
+              kv: [],
+              lines: [],
+            };
+            sections.push(section);
+            return;
+          }
+          if(!section) return;
+          if(key === 'KV') {
+            const tab = value.indexOf('\t');
+            section.kv.push({
+              key: tab >= 0 ? value.slice(0, tab) : value,
+              value: tab >= 0 ? value.slice(tab + 1) : '',
+            });
+          } else if(key === 'LINE') {
+            section.lines.push(value);
+          }
+        });
+        this.diagnostics = {
+          updated: new Date().toLocaleString(),
+          sections,
+        };
+      },
+      DiagnosticsSectionTitle(name) {
+        const key = `diagnostics.sections.${name}`;
+        return this.$te(key) ? this.$t(key) : name;
+      },
       HandleTabsClick(tab) {
         this.selectedTabIndex = parseInt(tab.index);
         if(this.selectedTab === 'CameraSettings') this.GetCameraProperty();
         if(this.selectedTab === 'maintenance') this.GetLatestVer();
+        if(this.selectedTab === 'diagnostics') this.LoadDiagnostics();
         if(this.selectedTab === 'SDCard') {
           if(!this.sdcardIntervalID) this.sdcardIntervalID = setInterval(() => {
             this.showMediaSize = this.$refs.sdcardFrame?.contentDocument?.title?.indexOf('Index of') === 0;
@@ -1655,5 +1787,44 @@
 
   .progress {
     padding: 0px 10vw;
+  }
+
+  .diagnostics-updated {
+    margin: 8px 0 12px 30px;
+    color: #666;
+  }
+
+  .diagnostics-section {
+    margin: 0 30px 18px 30px;
+  }
+
+  .diagnostics-table {
+    border-collapse: collapse;
+    width: 100%;
+    max-width: 720px;
+  }
+
+  .diagnostics-table th {
+    text-align: left;
+    white-space: nowrap;
+    padding: 4px 18px 4px 0;
+    color: #555;
+    font-weight: 600;
+  }
+
+  .diagnostics-table td {
+    padding: 4px 0;
+  }
+
+  .diagnostics-pre {
+    box-sizing: border-box;
+    max-width: 100%;
+    padding: 10px;
+    overflow-x: auto;
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.45;
   }
 </style>

@@ -381,6 +381,21 @@ motionDetect:
     title: 動体検知録画upload停止
     tooltip: AtomTechサーバーへの検知動画転送を停止します。アプリから確認できなくなります。サーバーへの転送が気になる場合は設定してください。
 
+profile:
+  title: プロファイル
+  mode:
+    title: プロファイル
+    tooltip: 用途に合わせてビデオ、RTSP、定常録画POST関連の設定をまとめて変更します
+    text:
+      - 通常
+      - RTSP/POST
+      - 低負荷
+      - 高画質
+  apply:
+    title: 適用
+    tooltip: 選択したプロファイルの値を画面上の設定に反映します
+    button: 適用
+
 videoSpec:
   title: ビデオ設定
   frameRate:
@@ -403,6 +418,23 @@ watermark:
 
 maintenance:
   tab: メンテナンス
+
+diagnostics:
+  tab: 診断
+  title: 軽量診断
+  refresh:
+    title: 更新
+    tooltip: 現在の状態を再取得します
+    button: 更新
+  sections:
+    summary: 概要
+    memory: メモリ
+    storage: ストレージ
+    network: ネットワーク
+    processes: プロセス
+    config: 主要設定
+    rtspLog: RTSPログ
+    recordPostLog: 録画POSTログ
 
 monitoring:
   title: モニタリング

@@ -382,6 +382,21 @@ motionDetect:
     title: Motion Sensor Video Upload Stop
     tooltip: Prevent upload of detection videos to AtomTech/Wyze servers. This will make it so they don't appear in the app. If you're concerned about sending stuff to their servers, check this option.
 
+profile:
+  title: Profile
+  mode:
+    title: Profile
+    tooltip: Change video, RTSP, and regular recording POST settings together for a usage profile
+    text:
+      - Normal
+      - RTSP/POST
+      - Low load
+      - Quality
+  apply:
+    title: Apply
+    tooltip: Apply the selected profile values to the settings on this page
+    button: Apply
+
 videoSpec:
   title: video config
   frameRate:
@@ -404,6 +419,23 @@ watermark:
 
 maintenance:
   tab: Maintenance
+
+diagnostics:
+  tab: Diagnostics
+  title: Lightweight Diagnostics
+  refresh:
+    title: Refresh
+    tooltip: Refresh current status
+    button: Refresh
+  sections:
+    summary: Summary
+    memory: Memory
+    storage: Storage
+    network: Network
+    processes: Processes
+    config: Key Config
+    rtspLog: RTSP Log
+    recordPostLog: Recording POST Log
 
 monitoring:
   title: Monitoring

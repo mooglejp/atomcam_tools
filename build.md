@@ -241,6 +241,10 @@ WebUIで表示するJPEG画像を取得しています。
 
 WebUIで使用している設定値の取得、設定をします。
 
+## `/var/www/cgi-bin/diagnostics.cgi`
+
+WebUIの診断タブ用に、負荷、メモリ、ストレージ、主要プロセス、主要設定、RTSP/録画POSTログ末尾を軽量なテキスト形式で返します。
+
 ## `/var/www/cgi-bin/hello.cgi`
 
 モバイルアプリからのアクセス時の要求に応答するためのCGIです。
