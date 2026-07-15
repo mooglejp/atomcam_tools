@@ -274,6 +274,8 @@ func (s *Server) handlePTZService(w http.ResponseWriter, r *http.Request) {
 
 	var response interface{}
 	switch action {
+	case "GetServiceCapabilities":
+		response = s.ptzService.GetServiceCapabilities()
 	case "GetNodes":
 		response = s.ptzService.GetNodes()
 	case "GetConfigurations":
@@ -395,6 +397,39 @@ func (s *Server) handlePTZService(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		response = &ptz.RelativeMoveResponse{}
+	case "MoveAndStartTracking":
+		bodyContent, err := soap.GetBodyContent(body)
+		if err != nil {
+			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
+			return
+		}
+		var req ptz.MoveAndStartTrackingRequest
+		if err := xml.Unmarshal(bodyContent, &req); err != nil {
+			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
+			return
+		}
+		if err := s.ptzService.MoveAndStartTracking(req); err != nil {
+			s.sendFault(w, soap.NewActionFailedFault(err.Error()))
+			return
+		}
+		response = &ptz.MoveAndStartTrackingResponse{}
+	case "SendAuxiliaryCommand":
+		bodyContent, err := soap.GetBodyContent(body)
+		if err != nil {
+			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
+			return
+		}
+		var req ptz.SendAuxiliaryCommandRequest
+		if err := xml.Unmarshal(bodyContent, &req); err != nil {
+			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
+			return
+		}
+		auxiliaryResponse, err := s.ptzService.SendAuxiliaryCommand(req.ProfileToken, req.AuxiliaryData)
+		if err != nil {
+			s.sendFault(w, soap.NewActionFailedFault(err.Error()))
+			return
+		}
+		response = &ptz.SendAuxiliaryCommandResponse{AuxiliaryResponse: auxiliaryResponse}
 	default:
 		s.sendFault(w, soap.NewActionFailedFault(fmt.Sprintf("Unknown action: %s", action)))
 		return
@@ -535,7 +570,7 @@ func (s *Server) handleRootService(w http.ResponseWriter, r *http.Request) {
 	case "GetProfiles", "GetStreamUri", "GetSnapshotUri":
 		s.routeToMediaService(w, body, action)
 	// PTZ service actions
-	case "GetNodes", "GetConfigurations", "ContinuousMove", "Stop", "GotoHomePosition", "GetPresets", "GotoPreset", "AbsoluteMove", "RelativeMove":
+	case "GetServiceCapabilities", "GetNodes", "GetConfigurations", "ContinuousMove", "Stop", "GotoHomePosition", "GetPresets", "GotoPreset", "AbsoluteMove", "RelativeMove", "MoveAndStartTracking", "SendAuxiliaryCommand":
 		s.routeToPTZService(w, body, action)
 	// Imaging service actions
 	case "GetImagingSettings", "SetImagingSettings", "GetOptions":
@@ -649,6 +684,8 @@ func (s *Server) routeToPTZService(w http.ResponseWriter, body []byte, action st
 
 	var response interface{}
 	switch action {
+	case "GetServiceCapabilities":
+		response = s.ptzService.GetServiceCapabilities()
 	case "GetNodes":
 		response = s.ptzService.GetNodes()
 	case "GetConfigurations":
@@ -770,6 +807,39 @@ func (s *Server) routeToPTZService(w http.ResponseWriter, body []byte, action st
 			return
 		}
 		response = &ptz.RelativeMoveResponse{}
+	case "MoveAndStartTracking":
+		bodyContent, err := soap.GetBodyContent(body)
+		if err != nil {
+			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
+			return
+		}
+		var req ptz.MoveAndStartTrackingRequest
+		if err := xml.Unmarshal(bodyContent, &req); err != nil {
+			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
+			return
+		}
+		if err := s.ptzService.MoveAndStartTracking(req); err != nil {
+			s.sendFault(w, soap.NewActionFailedFault(err.Error()))
+			return
+		}
+		response = &ptz.MoveAndStartTrackingResponse{}
+	case "SendAuxiliaryCommand":
+		bodyContent, err := soap.GetBodyContent(body)
+		if err != nil {
+			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
+			return
+		}
+		var req ptz.SendAuxiliaryCommandRequest
+		if err := xml.Unmarshal(bodyContent, &req); err != nil {
+			s.sendFault(w, soap.NewInvalidArgsFault("Invalid request"))
+			return
+		}
+		auxiliaryResponse, err := s.ptzService.SendAuxiliaryCommand(req.ProfileToken, req.AuxiliaryData)
+		if err != nil {
+			s.sendFault(w, soap.NewActionFailedFault(err.Error()))
+			return
+		}
+		response = &ptz.SendAuxiliaryCommandResponse{AuxiliaryResponse: auxiliaryResponse}
 	}
 
 	s.sendResponse(w, response)

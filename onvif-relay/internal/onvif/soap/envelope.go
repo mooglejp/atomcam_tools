@@ -49,7 +49,7 @@ func MarshalEnvelope(body interface{}) ([]byte, error) {
 	}{
 		XmlnsTds:  "http://www.onvif.org/ver10/device/wsdl",
 		XmlnsTrt:  "http://www.onvif.org/ver10/media/wsdl",
-		XmlnsTptz: "http://www.onvif.org/ver10/ptz/wsdl",
+		XmlnsTptz: "http://www.onvif.org/ver20/ptz/wsdl",
 		XmlnsTimg: "http://www.onvif.org/ver10/imaging/wsdl",
 		XmlnsTt:   "http://www.onvif.org/ver10/schema",
 	}

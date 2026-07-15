@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/camera"
 	"github.com/mooglejp/atomcam_tools/onvif-relay/internal/config"
@@ -18,42 +19,48 @@ type GetNodesRequest struct {
 
 // GetNodesResponse represents GetNodes response
 type GetNodesResponse struct {
-	XMLName xml.Name `xml:"tptz:GetNodesResponse"`
+	XMLName xml.Name  `xml:"tptz:GetNodesResponse"`
 	PTZNode []PTZNode `xml:"PTZNode"`
 }
 
+const (
+	trackingAuxiliaryOn  = "atomcam:Tracking|On"
+	trackingAuxiliaryOff = "atomcam:Tracking|Off"
+)
+
 // PTZNode represents a PTZ node
 type PTZNode struct {
-	Token            string           `xml:"token,attr"`
-	Name             string           `xml:"Name"`
-	SupportedPTZSpaces PTZSpaces      `xml:"SupportedPTZSpaces"`
-	MaximumNumberOfPresets int        `xml:"MaximumNumberOfPresets"`
-	HomeSupported    bool             `xml:"HomeSupported"`
-	FixedHomePosition bool            `xml:"FixedHomePosition,omitempty"`
+	Token                  string    `xml:"token,attr"`
+	Name                   string    `xml:"Name"`
+	SupportedPTZSpaces     PTZSpaces `xml:"SupportedPTZSpaces"`
+	MaximumNumberOfPresets int       `xml:"MaximumNumberOfPresets"`
+	HomeSupported          bool      `xml:"HomeSupported"`
+	FixedHomePosition      bool      `xml:"FixedHomePosition,omitempty"`
+	AuxiliaryCommands      []string  `xml:"AuxiliaryCommands,omitempty"`
 }
 
 // PTZSpaces represents PTZ coordinate spaces
 type PTZSpaces struct {
-	AbsolutePanTiltPositionSpace   []Space2D `xml:"AbsolutePanTiltPositionSpace,omitempty"`
-	AbsoluteZoomPositionSpace      []Space1D `xml:"AbsoluteZoomPositionSpace,omitempty"`
+	AbsolutePanTiltPositionSpace    []Space2D `xml:"AbsolutePanTiltPositionSpace,omitempty"`
+	AbsoluteZoomPositionSpace       []Space1D `xml:"AbsoluteZoomPositionSpace,omitempty"`
 	RelativePanTiltTranslationSpace []Space2D `xml:"RelativePanTiltTranslationSpace,omitempty"`
-	RelativeZoomTranslationSpace   []Space1D `xml:"RelativeZoomTranslationSpace,omitempty"`
-	ContinuousPanTiltVelocitySpace []Space2D `xml:"ContinuousPanTiltVelocitySpace,omitempty"`
-	ContinuousZoomVelocitySpace    []Space1D `xml:"ContinuousZoomVelocitySpace,omitempty"`
-	PanTiltSpeedSpace              []Space1D `xml:"PanTiltSpeedSpace,omitempty"`
-	ZoomSpeedSpace                 []Space1D `xml:"ZoomSpeedSpace,omitempty"`
+	RelativeZoomTranslationSpace    []Space1D `xml:"RelativeZoomTranslationSpace,omitempty"`
+	ContinuousPanTiltVelocitySpace  []Space2D `xml:"ContinuousPanTiltVelocitySpace,omitempty"`
+	ContinuousZoomVelocitySpace     []Space1D `xml:"ContinuousZoomVelocitySpace,omitempty"`
+	PanTiltSpeedSpace               []Space1D `xml:"PanTiltSpeedSpace,omitempty"`
+	ZoomSpeedSpace                  []Space1D `xml:"ZoomSpeedSpace,omitempty"`
 }
 
 // Space2D represents a 2D coordinate space
 type Space2D struct {
-	URI    string  `xml:"URI"`
-	XRange Range   `xml:"XRange"`
-	YRange Range   `xml:"YRange"`
+	URI    string `xml:"URI"`
+	XRange Range  `xml:"XRange"`
+	YRange Range  `xml:"YRange"`
 }
 
 // Space1D represents a 1D coordinate space
 type Space1D struct {
-	URI   string `xml:"URI"`
+	URI    string `xml:"URI"`
 	XRange Range  `xml:"XRange"`
 }
 
@@ -70,19 +77,19 @@ type GetConfigurationsRequest struct {
 
 // GetConfigurationsResponse represents GetConfigurations response
 type GetConfigurationsResponse struct {
-	XMLName        xml.Name        `xml:"tptz:GetConfigurationsResponse"`
+	XMLName          xml.Name           `xml:"tptz:GetConfigurationsResponse"`
 	PTZConfiguration []PTZConfiguration `xml:"PTZConfiguration"`
 }
 
 // PTZConfiguration represents PTZ configuration
 type PTZConfiguration struct {
-	Token      string     `xml:"token,attr"`
-	Name       string     `xml:"Name"`
-	NodeToken  string     `xml:"NodeToken"`
-	DefaultPTZSpeed *PTZSpeed `xml:"DefaultPTZSpeed,omitempty"`
-	DefaultPTZTimeout string  `xml:"DefaultPTZTimeout,omitempty"`
-	PanTiltLimits  *PanTiltLimits `xml:"PanTiltLimits,omitempty"`
-	ZoomLimits     *ZoomLimits    `xml:"ZoomLimits,omitempty"`
+	Token             string         `xml:"token,attr"`
+	Name              string         `xml:"Name"`
+	NodeToken         string         `xml:"NodeToken"`
+	DefaultPTZSpeed   *PTZSpeed      `xml:"DefaultPTZSpeed,omitempty"`
+	DefaultPTZTimeout string         `xml:"DefaultPTZTimeout,omitempty"`
+	PanTiltLimits     *PanTiltLimits `xml:"PanTiltLimits,omitempty"`
+	ZoomLimits        *ZoomLimits    `xml:"ZoomLimits,omitempty"`
 }
 
 // PTZSpeed represents PTZ speed
@@ -142,8 +149,8 @@ type StopResponse struct {
 
 // GotoHomePositionRequest represents GotoHomePosition request
 type GotoHomePositionRequest struct {
-	XMLName      xml.Name `xml:"GotoHomePosition"`
-	ProfileToken string   `xml:"ProfileToken"`
+	XMLName      xml.Name  `xml:"GotoHomePosition"`
+	ProfileToken string    `xml:"ProfileToken"`
 	Speed        *PTZSpeed `xml:"Speed,omitempty"`
 }
 
@@ -166,8 +173,8 @@ type GetPresetsResponse struct {
 
 // Preset represents a PTZ preset
 type Preset struct {
-	Token    string        `xml:"token,attr"`
-	Name     string        `xml:"tt:Name"`
+	Token       string       `xml:"token,attr"`
+	Name        string       `xml:"tt:Name"`
 	PTZPosition *PTZPosition `xml:"tt:PTZPosition,omitempty"`
 }
 
@@ -185,9 +192,9 @@ type PTZVector struct {
 
 // GotoPresetRequest represents GotoPreset request
 type GotoPresetRequest struct {
-	XMLName      xml.Name `xml:"GotoPreset"`
-	ProfileToken string   `xml:"ProfileToken"`
-	PresetToken  string   `xml:"PresetToken"`
+	XMLName      xml.Name  `xml:"GotoPreset"`
+	ProfileToken string    `xml:"ProfileToken"`
+	PresetToken  string    `xml:"PresetToken"`
 	Speed        *PTZSpeed `xml:"Speed,omitempty"`
 }
 
@@ -198,10 +205,10 @@ type GotoPresetResponse struct {
 
 // AbsoluteMoveRequest represents AbsoluteMove request
 type AbsoluteMoveRequest struct {
-	XMLName      xml.Name   `xml:"AbsoluteMove"`
-	ProfileToken string     `xml:"ProfileToken"`
-	Position     PTZVector  `xml:"Position"`
-	Speed        *PTZSpeed  `xml:"Speed,omitempty"`
+	XMLName      xml.Name  `xml:"AbsoluteMove"`
+	ProfileToken string    `xml:"ProfileToken"`
+	Position     PTZVector `xml:"Position"`
+	Speed        *PTZSpeed `xml:"Speed,omitempty"`
 }
 
 // AbsoluteMoveResponse represents AbsoluteMove response
@@ -211,15 +218,60 @@ type AbsoluteMoveResponse struct {
 
 // RelativeMoveRequest represents RelativeMove request
 type RelativeMoveRequest struct {
-	XMLName      xml.Name   `xml:"RelativeMove"`
-	ProfileToken string     `xml:"ProfileToken"`
-	Translation  PTZVector  `xml:"Translation"`
-	Speed        *PTZSpeed  `xml:"Speed,omitempty"`
+	XMLName      xml.Name  `xml:"RelativeMove"`
+	ProfileToken string    `xml:"ProfileToken"`
+	Translation  PTZVector `xml:"Translation"`
+	Speed        *PTZSpeed `xml:"Speed,omitempty"`
 }
 
 // RelativeMoveResponse represents RelativeMove response
 type RelativeMoveResponse struct {
 	XMLName xml.Name `xml:"tptz:RelativeMoveResponse"`
+}
+
+// GetServiceCapabilitiesRequest represents GetServiceCapabilities request.
+type GetServiceCapabilitiesRequest struct {
+	XMLName xml.Name `xml:"GetServiceCapabilities"`
+}
+
+// GetServiceCapabilitiesResponse represents GetServiceCapabilities response.
+type GetServiceCapabilitiesResponse struct {
+	XMLName      xml.Name               `xml:"tptz:GetServiceCapabilitiesResponse"`
+	Capabilities PTZServiceCapabilities `xml:"tptz:Capabilities"`
+}
+
+// PTZServiceCapabilities describes optional PTZ service features.
+type PTZServiceCapabilities struct {
+	MoveAndTrack string `xml:"MoveAndTrack,attr,omitempty"`
+}
+
+// MoveAndStartTrackingRequest represents MoveAndStartTracking request.
+type MoveAndStartTrackingRequest struct {
+	XMLName        xml.Name   `xml:"MoveAndStartTracking"`
+	ProfileToken   string     `xml:"ProfileToken"`
+	PresetToken    string     `xml:"PresetToken,omitempty"`
+	GeoLocation    *struct{}  `xml:"GeoLocation,omitempty"`
+	TargetPosition *PTZVector `xml:"TargetPosition,omitempty"`
+	Speed          *PTZSpeed  `xml:"Speed,omitempty"`
+	ObjectID       *int64     `xml:"ObjectID,omitempty"`
+}
+
+// MoveAndStartTrackingResponse represents MoveAndStartTracking response.
+type MoveAndStartTrackingResponse struct {
+	XMLName xml.Name `xml:"tptz:MoveAndStartTrackingResponse"`
+}
+
+// SendAuxiliaryCommandRequest represents SendAuxiliaryCommand request.
+type SendAuxiliaryCommandRequest struct {
+	XMLName       xml.Name `xml:"SendAuxiliaryCommand"`
+	ProfileToken  string   `xml:"ProfileToken"`
+	AuxiliaryData string   `xml:"AuxiliaryData"`
+}
+
+// SendAuxiliaryCommandResponse represents SendAuxiliaryCommand response.
+type SendAuxiliaryCommandResponse struct {
+	XMLName           xml.Name `xml:"tptz:SendAuxiliaryCommandResponse"`
+	AuxiliaryResponse string   `xml:"tptz:AuxiliaryResponse"`
 }
 
 // Service represents the PTZ service
@@ -249,6 +301,13 @@ func currentPTZPosition(cam *camera.Camera, operation string) (pan, tilt int) {
 
 // GetNodes handles GetNodes request
 func (s *Service) GetNodes() *GetNodesResponse {
+	maximumNumberOfPresets := 0
+	for _, cam := range s.registry.List() {
+		if count := len(cam.Config.PTZ.Presets); count > maximumNumberOfPresets {
+			maximumNumberOfPresets = count
+		}
+	}
+
 	return &GetNodesResponse{
 		PTZNode: []PTZNode{
 			{
@@ -257,21 +316,21 @@ func (s *Service) GetNodes() *GetNodesResponse {
 				SupportedPTZSpaces: PTZSpaces{
 					AbsolutePanTiltPositionSpace: []Space2D{
 						{
-							URI: "http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace",
+							URI:    "http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace",
 							XRange: Range{Min: -1.0, Max: 1.0},
 							YRange: Range{Min: -1.0, Max: 1.0},
 						},
 					},
 					RelativePanTiltTranslationSpace: []Space2D{
 						{
-							URI: "http://www.onvif.org/ver10/tptz/PanTiltSpaces/TranslationGenericSpace",
+							URI:    "http://www.onvif.org/ver10/tptz/PanTiltSpaces/TranslationGenericSpace",
 							XRange: Range{Min: -1.0, Max: 1.0},
 							YRange: Range{Min: -1.0, Max: 1.0},
 						},
 					},
 					ContinuousPanTiltVelocitySpace: []Space2D{
 						{
-							URI: "http://www.onvif.org/ver10/tptz/PanTiltSpaces/VelocityGenericSpace",
+							URI:    "http://www.onvif.org/ver10/tptz/PanTiltSpaces/VelocityGenericSpace",
 							XRange: Range{Min: -1.0, Max: 1.0},
 							YRange: Range{Min: -1.0, Max: 1.0},
 						},
@@ -283,10 +342,23 @@ func (s *Service) GetNodes() *GetNodesResponse {
 						},
 					},
 				},
-				MaximumNumberOfPresets: 0,
+				MaximumNumberOfPresets: maximumNumberOfPresets,
 				HomeSupported:          true,
 				FixedHomePosition:      true,
+				AuxiliaryCommands: []string{
+					trackingAuxiliaryOn,
+					trackingAuxiliaryOff,
+				},
 			},
+		},
+	}
+}
+
+// GetServiceCapabilities handles GetServiceCapabilities request.
+func (s *Service) GetServiceCapabilities() *GetServiceCapabilitiesResponse {
+	return &GetServiceCapabilitiesResponse{
+		Capabilities: PTZServiceCapabilities{
+			MoveAndTrack: "PTZVector PresetToken",
 		},
 	}
 }
@@ -529,6 +601,16 @@ func (s *Service) GotoPreset(profileToken, presetToken string, speed *PTZSpeed) 
 		return fmt.Errorf("preset not found: %s", presetToken)
 	}
 
+	// Check if this is a motion tracking action preset.
+	if preset.Tracking != "" {
+		enabled := strings.EqualFold(preset.Tracking, "on")
+		log.Printf("PTZ GotoPreset: tracking action - enabled=%t", enabled)
+		if err := profile.Camera.Client.SetTracking(enabled); err != nil {
+			return fmt.Errorf("failed to set tracking for preset %s: %w", presetToken, err)
+		}
+		return nil
+	}
+
 	// Check if this is an MQTT preset
 	if preset.MQTTBroker != "" && preset.MQTTTopic != "" {
 		// MQTT preset: publish message instead of moving camera
@@ -563,6 +645,64 @@ func (s *Service) GotoPreset(profileToken, presetToken string, speed *PTZSpeed) 
 	profile.Camera.SetPTZPosition(preset.Pan, preset.Tilt)
 
 	return profile.Camera.Client.PTZMove(preset.Pan, preset.Tilt, defaultSpeed)
+}
+
+// MoveAndStartTracking optionally moves the camera and then enables motion tracking.
+func (s *Service) MoveAndStartTracking(req MoveAndStartTrackingRequest) error {
+	profile, err := s.registry.GetProfileByToken(req.ProfileToken)
+	if err != nil {
+		return fmt.Errorf("profile not found: %s", req.ProfileToken)
+	}
+	if !profile.Camera.Config.Capabilities.PTZ {
+		return fmt.Errorf("camera does not support PTZ: %s", profile.Camera.Config.Name)
+	}
+	if req.GeoLocation != nil {
+		return fmt.Errorf("GeoLocation tracking target is not supported")
+	}
+	if req.ObjectID != nil {
+		return fmt.Errorf("ObjectID tracking target is not supported")
+	}
+	if req.PresetToken != "" && req.TargetPosition != nil {
+		return fmt.Errorf("PresetToken and TargetPosition cannot be combined")
+	}
+
+	if req.PresetToken != "" {
+		if err := s.GotoPreset(req.ProfileToken, req.PresetToken, req.Speed); err != nil {
+			return err
+		}
+	} else if req.TargetPosition != nil {
+		if err := s.AbsoluteMove(req.ProfileToken, *req.TargetPosition, req.Speed); err != nil {
+			return err
+		}
+	}
+
+	return profile.Camera.Client.SetTracking(true)
+}
+
+// SendAuxiliaryCommand executes a vendor-specific tracking command.
+func (s *Service) SendAuxiliaryCommand(profileToken, command string) (string, error) {
+	profile, err := s.registry.GetProfileByToken(profileToken)
+	if err != nil {
+		return "", fmt.Errorf("profile not found: %s", profileToken)
+	}
+	if !profile.Camera.Config.Capabilities.PTZ {
+		return "", fmt.Errorf("camera does not support PTZ: %s", profile.Camera.Config.Name)
+	}
+
+	var enabled bool
+	switch {
+	case strings.EqualFold(command, trackingAuxiliaryOn):
+		enabled = true
+	case strings.EqualFold(command, trackingAuxiliaryOff):
+		enabled = false
+	default:
+		return "", fmt.Errorf("unsupported auxiliary command: %s", command)
+	}
+
+	if err := profile.Camera.Client.SetTracking(enabled); err != nil {
+		return "", fmt.Errorf("failed to set tracking: %w", err)
+	}
+	return command, nil
 }
 
 // AbsoluteMove handles AbsoluteMove request
@@ -606,8 +746,8 @@ func (s *Service) AbsoluteMove(profileToken string, position PTZVector, speed *P
 				currentPan = profile.Camera.Config.PTZ.Home.Pan
 				currentTilt = profile.Camera.Config.PTZ.Home.Tilt
 			} else {
-				currentPan = 177  // Center
-				currentTilt = 90  // Center
+				currentPan = 177 // Center
+				currentTilt = 90 // Center
 			}
 			profile.Camera.SetPTZPosition(currentPan, currentTilt)
 			log.Printf("PTZ AbsoluteMove: Initialized position to (%d, %d)", currentPan, currentTilt)
@@ -619,7 +759,7 @@ func (s *Service) AbsoluteMove(profileToken string, position PTZVector, speed *P
 		halfVerticalFOV := profile.Camera.Config.PTZ.VerticalFOV / 2.0
 
 		deltaPan := int(math.Round(x * halfHorizontalFOV))
-		deltaTilt := int(math.Round((1.0 - y) * halfVerticalFOV)) - int(halfVerticalFOV)
+		deltaTilt := int(math.Round((1.0-y)*halfVerticalFOV)) - int(halfVerticalFOV)
 
 		pan = currentPan + deltaPan
 		tilt = currentTilt + deltaTilt
@@ -714,8 +854,8 @@ func (s *Service) RelativeMove(profileToken string, translation PTZVector, speed
 			currentPan = profile.Camera.Config.PTZ.Home.Pan
 			currentTilt = profile.Camera.Config.PTZ.Home.Tilt
 		} else {
-			currentPan = 177  // Center
-			currentTilt = 90  // Center
+			currentPan = 177 // Center
+			currentTilt = 90 // Center
 		}
 		// Update tracked position
 		profile.Camera.SetPTZPosition(currentPan, currentTilt)

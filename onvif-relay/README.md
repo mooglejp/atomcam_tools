@@ -46,6 +46,17 @@ cameras:
     capabilities:
       ptz: true
       ir: true
+    ptz:
+      home:
+        pan: 177
+        tilt: 90
+      presets:
+        - name: "Tracking On"
+          token: "tracking-on"
+          tracking: "on"
+        - name: "Tracking Off"
+          token: "tracking-off"
+          tracking: "off"
     talk:
       enabled: true
       port: 4010
@@ -56,6 +67,12 @@ cameras:
         codec: "h264"
         profile_name: "Main"
 ```
+
+### PTZ自動追尾
+
+Swingの自動追尾は、ONVIF PTZの標準`MoveAndStartTracking`でONにできます。OFF操作にはPTZノードが公開するベンダー補助コマンド`atomcam:Tracking|Off`を使います。補助コマンドでは`atomcam:Tracking|On`も利用できます。
+
+ONVIFクライアントからプリセットを呼び出して切り替えたい場合は、上記のように`tracking: "on"`または`tracking: "off"`を持つアクションプリセットを設定します。`tracking`と`mqtt_*`は同じプリセットには指定できません。
 
 ### 2. Docker Composeで起動
 

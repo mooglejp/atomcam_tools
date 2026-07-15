@@ -210,6 +210,73 @@ func (c *CameraConfig) Validate() error {
 		return fmt.Errorf("talk: %w", err)
 	}
 
+	if c.PTZ.Home != nil {
+		if err := c.PTZ.Home.validatePosition(); err != nil {
+			return fmt.Errorf("ptz.home: %w", err)
+		}
+	}
+
+	presetTokens := make(map[string]bool)
+	for i := range c.PTZ.Presets {
+		preset := &c.PTZ.Presets[i]
+		if err := preset.Validate(); err != nil {
+			return fmt.Errorf("ptz.presets[%d]: %w", i, err)
+		}
+
+		token := preset.Token
+		if token == "" {
+			token = fmt.Sprintf("%d", i+1)
+		}
+		if presetTokens[token] {
+			return fmt.Errorf("ptz.presets[%d]: duplicate token: %s", i, token)
+		}
+		presetTokens[token] = true
+	}
+
+	return nil
+}
+
+// Validate validates a PTZ position or action preset.
+func (p *PTZPreset) Validate() error {
+	if p.Name == "" {
+		return fmt.Errorf("name is required")
+	}
+
+	hasMQTT := p.MQTTBroker != "" || p.MQTTTopic != "" || p.MQTTMessage != ""
+	hasTracking := p.Tracking != ""
+	if hasMQTT && hasTracking {
+		return fmt.Errorf("mqtt and tracking actions cannot be combined")
+	}
+
+	if hasMQTT {
+		if p.MQTTBroker == "" {
+			return fmt.Errorf("mqtt_broker is required for an MQTT preset")
+		}
+		if p.MQTTTopic == "" {
+			return fmt.Errorf("mqtt_topic is required for an MQTT preset")
+		}
+		return nil
+	}
+
+	if hasTracking {
+		tracking := strings.ToLower(p.Tracking)
+		if tracking != "on" && tracking != "off" {
+			return fmt.Errorf("tracking must be on or off")
+		}
+		p.Tracking = tracking
+		return nil
+	}
+
+	return p.validatePosition()
+}
+
+func (p *PTZPreset) validatePosition() error {
+	if p.Pan < 0 || p.Pan > 355 {
+		return fmt.Errorf("pan out of range: %d (must be 0-355)", p.Pan)
+	}
+	if p.Tilt < 0 || p.Tilt > 180 {
+		return fmt.Errorf("tilt out of range: %d (must be 0-180)", p.Tilt)
+	}
 	return nil
 }
 

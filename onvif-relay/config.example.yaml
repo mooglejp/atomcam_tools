@@ -50,6 +50,25 @@ cameras:
     capabilities:
       ptz: true
       ir: true
+    ptz:
+      home:
+        pan: 177
+        tilt: 90
+      horizontal_fov: 120.0
+      vertical_fov: 67.5
+      presets:
+        - name: "Tracking On"
+          token: "tracking-on"
+          tracking: "on"
+        - name: "Tracking Off"
+          token: "tracking-off"
+          tracking: "off"
+        # MQTT action presets continue to work alongside tracking presets.
+        # - name: "Porch Light On"
+        #   token: "light-on"
+        #   mqtt_broker: "tcp://mqtt:1883"
+        #   mqtt_topic: "home/porch/light"
+        #   mqtt_message: "ON"
     streams:
       - path: "video0_unicast"
         resolution: "1920x1080"
