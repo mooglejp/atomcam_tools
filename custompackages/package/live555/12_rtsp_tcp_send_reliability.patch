@@ -1,0 +1,83 @@
+diff --git a/liveMedia/GenericMediaServer.cpp b/liveMedia/GenericMediaServer.cpp
+index a7fa99e..2cadde5 100644
+--- a/liveMedia/GenericMediaServer.cpp
++++ b/liveMedia/GenericMediaServer.cpp
+@@ -240,7 +240,13 @@ void GenericMediaServer::incomingConnectionHandlerOnSocket(int serverSocket) {
+   }
+   ignoreSigPipeOnSocket(clientSocket); // so that clients on the same host that are killed don't also kill us
+   makeSocketNonBlocking(clientSocket);
+-  increaseSendBufferTo(envir(), clientSocket, 50*1024);
++  // An encoded video IDR can be substantially larger than the old 50 KiB
++  // default. RTP-over-RTSP/TCP emits all of its fragments in a burst, so a
++  // small socket buffer can fill between fragments and lose an interleaved
++  // RTP packet before it reaches the kernel.
++  increaseSendBufferTo(envir(), clientSocket, 512*1024);
++  fprintf(stderr, "RTSP TCP socket %d send buffer: %u bytes\n",
++	  clientSocket, getSendBufferSize(envir(), clientSocket));
+   
+ #ifdef DEBUG
+   envir() << "accept()ed connection from " << AddressString(clientAddr).val() << "\n";
+diff --git a/liveMedia/RTPInterface.cpp b/liveMedia/RTPInterface.cpp
+index 4ee78ea..9cb7e71 100644
+--- a/liveMedia/RTPInterface.cpp
++++ b/liveMedia/RTPInterface.cpp
+@@ -348,16 +348,16 @@ Boolean RTPInterface::sendRTPorRTCPPacketOverTCP(u_int8_t* packet, unsigned pack
+ #endif
+   // Send a RTP/RTCP packet over TCP, using the encoding defined in RFC 2326, section 10.12:
+   //     $<streamChannelId><packetSize><packet>
+-  // (If the initial "send()" of '$<streamChannelId><packetSize>' succeeds, then we force
+-  // the subsequent "send()" for the <packet> data to succeed, even if we have to do so with
+-  // a blocking "send()".)
++  // Force both the framing header and packet data to succeed. Otherwise an EAGAIN while
++  // sending the framing header silently drops one RTP packet while keeping the stream alive.
++  // This may use a blocking "send()" for up to RTPINTERFACE_BLOCKING_WRITE_TIMEOUT_MS.
+   do {
+     u_int8_t framingHeader[4];
+     framingHeader[0] = '$';
+     framingHeader[1] = streamChannelId;
+     framingHeader[2] = (u_int8_t) ((packetSize&0xFF00)>>8);
+     framingHeader[3] = (u_int8_t) (packetSize&0xFF);
+-    if (!sendDataOverTCP(socketNum, tlsState, framingHeader, 4, False)) break;
++    if (!sendDataOverTCP(socketNum, tlsState, framingHeader, 4, True)) break;
+ 
+     if (!sendDataOverTCP(socketNum, tlsState, packet, packetSize, True)) break;
+ #ifdef DEBUG_SEND
+@@ -387,11 +387,14 @@ Boolean RTPInterface::sendDataOverTCP(int socketNum, TLSState* tlsState,
+     // The TCP send() failed - at least partially.
+ 
+     unsigned numBytesSentSoFar = sendResult < 0 ? 0 : (unsigned)sendResult;
+-    if (numBytesSentSoFar > 0 || (forceSendToSucceed && envir().getErrno() == EAGAIN)) {
++    int sendErrno = sendResult < 0 ? envir().getErrno() : 0;
++    if (numBytesSentSoFar > 0 || (forceSendToSucceed && sendErrno == EAGAIN)) {
+       // The OS's TCP send buffer has filled up (because the stream's bitrate has exceeded
+       // the capacity of the TCP connection!).
+       // Force this data write to succeed, by blocking if necessary until it does:
+       unsigned numBytesRemainingToSend = dataSize - numBytesSentSoFar;
++      fprintf(stderr, "RTP-over-TCP send retry: socket=%d requested=%u sent=%u errno=%d\n",
++	      socketNum, dataSize, numBytesSentSoFar, sendErrno);
+ #ifdef DEBUG_SEND
+       fprintf(stderr, "sendDataOverTCP: resending %d-byte send (blocking)\n", numBytesRemainingToSend); fflush(stderr);
+ #endif
+@@ -403,6 +406,9 @@ Boolean RTPInterface::sendDataOverTCP(int socketNum, TLSState* tlsState,
+       if ((unsigned)sendResult != numBytesRemainingToSend) {
+ 	// The blocking "send()" failed, or timed out.  In either case, we assume that the
+ 	// TCP connection has failed (or is 'hanging' indefinitely), and we stop using it
++	int retryErrno = sendResult < 0 ? envir().getErrno() : 0;
++	fprintf(stderr, "RTP-over-TCP send failed: socket=%d requested=%u sent=%d errno=%d\n",
++		socketNum, numBytesRemainingToSend, sendResult, retryErrno);
+ 	// (for both RTP and RTP).
+ 	// (If we kept using the socket here, the RTP or RTCP packet write would be in an
+ 	//  incomplete, inconsistent state.)
+@@ -414,9 +420,11 @@ Boolean RTPInterface::sendDataOverTCP(int socketNum, TLSState* tlsState,
+       }
+ 
+       return True;
+-    } else if (sendResult < 0 && envir().getErrno() != EAGAIN) {
++    } else if (sendResult < 0 && sendErrno != EAGAIN) {
+       // Because the "send()" call failed, assume that the socket is now unusable, so stop
+       // using it (for both RTP and RTCP):
++      fprintf(stderr, "RTP-over-TCP send failed: socket=%d requested=%u sent=%d errno=%d\n",
++	      socketNum, dataSize, sendResult, sendErrno);
+       removeStreamSocket(socketNum, 0xFF);
+     }
+ 

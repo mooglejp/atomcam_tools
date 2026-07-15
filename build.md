@@ -193,6 +193,10 @@ v4l2rtspserverをオン/オフします。
 
 `RTSP_DSCP`を`LIVE555_DSCP`としてv4l2rtspserverに渡し、live555側で送信ソケットにDSCPを設定します。
 
+RTSP-over-TCPでは、IDRのRTP分割送信を吸収できるようクライアントソケットの送信バッファを
+512KiBへ拡大します。送信バッファが一時的に満杯になった場合もinterleaved RTPヘッダーを
+再送し、再送または送信失敗が発生した場合は`rtspserver.log`へ出力します。
+
 圧縮映像フレームの経路診断は`/scripts/cmd video <ch> diag on`で有効化し、
 `/scripts/cmd video <ch> diag off`で無効化します。有効時はiCamera_app側のwrite直前に、
 フレーム連番、時刻、サイズ、FNV-1a 64bitハッシュ、write結果を`tools.log`へ出力します。
