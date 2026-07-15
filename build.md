@@ -193,6 +193,10 @@ v4l2rtspserverをオン/オフします。
 
 `RTSP_DSCP`を`LIVE555_DSCP`としてv4l2rtspserverに渡し、live555側で送信ソケットにDSCPを設定します。
 
+RTSP-over-TCPでは、IDRのRTP分割送信を吸収できるようクライアントソケットの送信バッファを
+512KiBへ拡大します。送信バッファが一時的に満杯になった場合もinterleaved RTPヘッダーを
+再送し、送信失敗が発生した場合は`rtspserver.log`へ出力します。
+
 ## `/scripts/set_crontab.sh`
 
 `reboot.sh`や`timelapse.sh`を起動する時刻をcrontabに設定するためのスクリプトです。

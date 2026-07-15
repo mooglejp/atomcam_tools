@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <dlfcn.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +22,8 @@ static int (*real_local_sdk_video_set_encode_frame_callback)(int ch, void *callb
 static int video0_encode_capture(struct frames_st *frames);
 static int video1_encode_capture(struct frames_st *frames);
 static int video2_encode_capture(struct frames_st *frames);
+static unsigned long video_write_mismatch_total[3];
+static unsigned long video_write_mismatch_streak[3];
 
 struct video_capture_st {
   framecb capture;
@@ -174,7 +177,32 @@ static int video_encode_capture(int ch, struct frames_st *frames) {
     video_capture[ch].fd = -1;
   }
 
-  if(video_capture[ch].fd >= 0) write(video_capture[ch].fd, frames->buf, frames->length);
+  if(video_capture[ch].fd >= 0) {
+    ssize_t written;
+    int write_errno;
+
+    errno = 0;
+    written = write(video_capture[ch].fd, frames->buf, frames->length);
+    write_errno = errno;
+    if((written < 0) || ((size_t)written != frames->length)) {
+      unsigned long streak = ++video_write_mismatch_streak[ch];
+      unsigned long total = ++video_write_mismatch_total[ch];
+
+      /* Log isolated failures, then rate-limit a continuous failure streak. */
+      if((streak <= 3) || (streak == 10) || ((streak % 100) == 0)) {
+        fprintf(stderr,
+                "video_capture write mismatch: ch=%d device=%s requested=%zu written=%ld errno=%d streak=%lu total=%lu\n",
+                ch, video_capture[ch].device, frames->length, (long)written,
+                write_errno, streak, total);
+      }
+    } else if(video_write_mismatch_streak[ch] != 0) {
+      fprintf(stderr,
+              "video_capture write recovered: ch=%d device=%s previous_streak=%lu total=%lu\n",
+              ch, video_capture[ch].device, video_write_mismatch_streak[ch],
+              video_write_mismatch_total[ch]);
+      video_write_mismatch_streak[ch] = 0;
+    }
+  }
   return (video_capture[ch].callback)(frames);
 }
 
