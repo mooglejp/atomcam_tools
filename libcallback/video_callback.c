@@ -24,20 +24,6 @@ static int video1_encode_capture(struct frames_st *frames);
 static int video2_encode_capture(struct frames_st *frames);
 static unsigned long video_write_mismatch_total[3];
 static unsigned long video_write_mismatch_streak[3];
-static int video_frame_diagnostics[3];
-static unsigned long long video_frame_sequence[3];
-
-/* Keep this in sync with the hash used by v4l2rtspserver diagnostics. */
-static uint64_t video_frame_hash(const unsigned char *buf, size_t length) {
-  uint64_t hash = UINT64_C(14695981039346656037);
-  size_t i;
-
-  for(i = 0; i < length; i++) {
-    hash ^= buf[i];
-    hash *= UINT64_C(1099511628211);
-  }
-  return hash;
-}
 
 struct video_capture_st {
   framecb capture;
@@ -148,22 +134,6 @@ char *VideoCapture(int fd, char *p, char *tokenPtr) {
     p = strtok_r(NULL, " \t\r\n", &tokenPtr);
   }
   if(!p) return video_capture[ch].enable ? "on" : "off";
-  if(!strcasecmp(p, "diagnostic") || !strcasecmp(p, "diag")) {
-    p = strtok_r(NULL, " \t\r\n", &tokenPtr);
-    if(!p) return video_frame_diagnostics[ch] ? "on" : "off";
-    if(!strcasecmp(p, "on")) {
-      if(!video_frame_diagnostics[ch]) video_frame_sequence[ch] = 0;
-      video_frame_diagnostics[ch] = 1;
-      printf("[command] video %d frame diagnostics on\n", ch);
-      return "ok";
-    }
-    if(!strcasecmp(p, "off")) {
-      video_frame_diagnostics[ch] = 0;
-      printf("[command] video %d frame diagnostics off\n", ch);
-      return "ok";
-    }
-    return "error";
-  }
   if(!strcasecmp(p, "on")) {
     video_capture[ch].enable = 1;
     printf("[command] video %d capute on\n", ch);
@@ -210,26 +180,10 @@ static int video_encode_capture(int ch, struct frames_st *frames) {
   if(video_capture[ch].fd >= 0) {
     ssize_t written;
     int write_errno;
-    unsigned long long sequence = 0;
-    uint64_t hash = 0;
-    struct timeval timestamp;
-
-    if(video_frame_diagnostics[ch]) {
-      sequence = ++video_frame_sequence[ch];
-      hash = video_frame_hash(frames->buf, frames->length);
-      gettimeofday(&timestamp, NULL);
-    }
 
     errno = 0;
     written = write(video_capture[ch].fd, frames->buf, frames->length);
     write_errno = errno;
-    if(video_frame_diagnostics[ch]) {
-      fprintf(stderr,
-              "video_capture frame: ch=%d seq=%llu timestamp=%ld.%06ld size=%zu hash=%016llx written=%ld errno=%d\n",
-              ch, sequence, (long)timestamp.tv_sec, (long)timestamp.tv_usec,
-              frames->length, (unsigned long long)hash, (long)written,
-              write_errno);
-    }
     if((written < 0) || ((size_t)written != frames->length)) {
       unsigned long streak = ++video_write_mismatch_streak[ch];
       unsigned long total = ++video_write_mismatch_total[ch];

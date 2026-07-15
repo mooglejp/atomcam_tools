@@ -2,7 +2,7 @@ diff --git a/liveMedia/GenericMediaServer.cpp b/liveMedia/GenericMediaServer.cpp
 index a7fa99e..2cadde5 100644
 --- a/liveMedia/GenericMediaServer.cpp
 +++ b/liveMedia/GenericMediaServer.cpp
-@@ -240,7 +240,13 @@ void GenericMediaServer::incomingConnectionHandlerOnSocket(int serverSocket) {
+@@ -240,7 +240,11 @@ void GenericMediaServer::incomingConnectionHandlerOnSocket(int serverSocket) {
    }
    ignoreSigPipeOnSocket(clientSocket); // so that clients on the same host that are killed don't also kill us
    makeSocketNonBlocking(clientSocket);
@@ -12,8 +12,6 @@ index a7fa99e..2cadde5 100644
 +  // small socket buffer can fill between fragments and lose an interleaved
 +  // RTP packet before it reaches the kernel.
 +  increaseSendBufferTo(envir(), clientSocket, 512*1024);
-+  fprintf(stderr, "RTSP TCP socket %d send buffer: %u bytes\n",
-+	  clientSocket, getSendBufferSize(envir(), clientSocket));
    
  #ifdef DEBUG
    envir() << "accept()ed connection from " << AddressString(clientAddr).val() << "\n";
@@ -42,7 +40,7 @@ index 4ee78ea..9cb7e71 100644
  
      if (!sendDataOverTCP(socketNum, tlsState, packet, packetSize, True)) break;
  #ifdef DEBUG_SEND
-@@ -387,11 +387,14 @@ Boolean RTPInterface::sendDataOverTCP(int socketNum, TLSState* tlsState,
+@@ -387,11 +387,12 @@ Boolean RTPInterface::sendDataOverTCP(int socketNum, TLSState* tlsState,
      // The TCP send() failed - at least partially.
  
      unsigned numBytesSentSoFar = sendResult < 0 ? 0 : (unsigned)sendResult;
@@ -53,8 +51,6 @@ index 4ee78ea..9cb7e71 100644
        // the capacity of the TCP connection!).
        // Force this data write to succeed, by blocking if necessary until it does:
        unsigned numBytesRemainingToSend = dataSize - numBytesSentSoFar;
-+      fprintf(stderr, "RTP-over-TCP send retry: socket=%d requested=%u sent=%u errno=%d\n",
-+	      socketNum, dataSize, numBytesSentSoFar, sendErrno);
  #ifdef DEBUG_SEND
        fprintf(stderr, "sendDataOverTCP: resending %d-byte send (blocking)\n", numBytesRemainingToSend); fflush(stderr);
  #endif
