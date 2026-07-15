@@ -1,0 +1,208 @@
+diff --git a/inc/V4L2DeviceSource.h b/inc/V4L2DeviceSource.h
+index 5bf5773..dd87023 100755
+--- a/inc/V4L2DeviceSource.h
++++ b/inc/V4L2DeviceSource.h
+@@ -16,6 +16,7 @@
+ #include <list> 
+ #include <iostream>
+ #include <iomanip>
++#include <stdint.h>
+ 
+ #include <pthread.h>
+ 
+@@ -35,7 +36,7 @@ class V4L2DeviceSource: public FramedSource
+ 		// ---------------------------------
+ 		struct Frame
+ 		{
+-			Frame(char* buffer, int size, timeval timestamp, char * allocatedBuffer = NULL) : m_buffer(buffer), m_size(size), m_timestamp(timestamp), m_allocatedBuffer(allocatedBuffer) {};
++			Frame(char* buffer, int size, timeval timestamp, uint64_t sequence, unsigned int partIndex, uint64_t hash, char * allocatedBuffer = NULL) : m_buffer(buffer), m_size(size), m_timestamp(timestamp), m_sequence(sequence), m_partIndex(partIndex), m_hash(hash), m_allocatedBuffer(allocatedBuffer) {};
+ 			Frame(const Frame&);
+ 			Frame& operator=(const Frame&);
+ 			~Frame()  { delete [] m_allocatedBuffer; };
+@@ -43,6 +44,9 @@ class V4L2DeviceSource: public FramedSource
+ 			char* m_buffer;
+ 			unsigned int m_size;
+ 			timeval m_timestamp;
++			uint64_t m_sequence;
++			unsigned int m_partIndex;
++			uint64_t m_hash;
+ 			char* m_allocatedBuffer;
+ 		};
+ 		
+@@ -95,8 +99,8 @@ class V4L2DeviceSource: public FramedSource
+ 		static void incomingPacketHandlerStub(void* clientData, int mask) { ((V4L2DeviceSource*) clientData)->incomingPacketHandler(); };
+ 		void incomingPacketHandler();
+ 		int getNextFrame();
+-		void processFrame(char * frame, int frameSize, const timeval &ref);
+-		void queueFrame(char * frame, int frameSize, const timeval &tv, char * allocatedBuffer = NULL);
++		void processFrame(char * frame, int frameSize, const timeval &ref, uint64_t sequence);
++		void queueFrame(char * frame, int frameSize, const timeval &tv, uint64_t sequence, unsigned int partIndex, char * allocatedBuffer = NULL);
+ 
+ 		// split packet in frames
+ 		virtual std::list< std::pair<unsigned char*,size_t> > splitFrames(unsigned char* frame, unsigned frameSize);
+@@ -112,8 +116,9 @@ class V4L2DeviceSource: public FramedSource
+ 		int m_outfd;
+ 		DeviceInterface * m_device;
+ 		unsigned int m_queueSize;
++		bool m_isVideo;
++		uint64_t m_captureSequence;
+ 		pthread_t m_thid;
+ 		pthread_mutex_t m_mutex;
+ 		std::string m_auxLine;
+ };
+-
+diff --git a/src/V4L2DeviceSource.cpp b/src/V4L2DeviceSource.cpp
+index 9a3b247..293416b 100644
+--- a/src/V4L2DeviceSource.cpp
++++ b/src/V4L2DeviceSource.cpp
+@@ -12,11 +12,30 @@
+ #include <fcntl.h>
+ #include <iomanip>
+ #include <sstream>
++#include <stdint.h>
+ 
+ // project
+ #include "logger.h"
+ #include "V4L2DeviceSource.h"
+ 
++static uint64_t frameHash(const char* buffer, size_t size)
++{
++	uint64_t hash = UINT64_C(14695981039346656037);
++	for (size_t i = 0; i < size; ++i)
++	{
++		hash ^= static_cast<unsigned char>(buffer[i]);
++		hash *= UINT64_C(1099511628211);
++	}
++	return hash;
++}
++
++static std::string formatHash(uint64_t hash)
++{
++	std::ostringstream os;
++	os << std::hex << std::setw(16) << std::setfill('0') << hash;
++	return os.str();
++}
++
+ // ---------------------------------
+ // V4L2 FramedSource Stats
+ // ---------------------------------
+@@ -54,7 +73,9 @@ V4L2DeviceSource::V4L2DeviceSource(UsageEnvironment& env, DeviceInterface * devi
+ 	m_out("out") , 
+ 	m_outfd(outputFd),
+ 	m_device(device),
+-	m_queueSize(queueSize)
++	m_queueSize(queueSize),
++	m_isVideo(device && device->getVideoFormat() != -1),
++	m_captureSequence(0)
+ {
+ 	m_eventTriggerId = envir().taskScheduler().createEventTrigger(V4L2DeviceSource::deliverFrameStub);
+ 	memset(&m_thid, 0, sizeof(m_thid));
+@@ -135,6 +156,7 @@ void V4L2DeviceSource::deliverFrame()
+ 	{
+ 		fDurationInMicroseconds = 0;
+ 		fFrameSize = 0;
++		fNumTruncatedBytes = 0;
+ 		
+ 		pthread_mutex_lock (&m_mutex);
+ 		if (m_captureQueue.empty())
+@@ -149,6 +171,7 @@ void V4L2DeviceSource::deliverFrame()
+ 			m_captureQueue.pop_front();
+ 	
+ 			m_out.notify(curTime.tv_sec, frame->m_size);
++			uint64_t currentHash = frameHash(frame->m_buffer, frame->m_size);
+ 			if (frame->m_size > fMaxSize) 
+ 			{
+ 				fFrameSize = fMaxSize;
+@@ -160,8 +183,18 @@ void V4L2DeviceSource::deliverFrame()
+ 			}
+ 			timeval diff;
+ 			timersub(&curTime,&(frame->m_timestamp),&diff);
++			uint64_t deliveredHash = frameHash(frame->m_buffer, fFrameSize);
+ 
+-			LOG(DEBUG) << "deliverFrame\ttimestamp:" << curTime.tv_sec << "." << curTime.tv_usec << "\tsize:" << fFrameSize <<"\tdiff:" <<  (diff.tv_sec*1000+diff.tv_usec/1000) << "ms\tqueue:" << m_captureQueue.size();		
++			LOG(DEBUG) << "deliverFrame\tmedia:" << (m_isVideo ? "video" : "audio")
++				<< "\tseq:" << frame->m_sequence << "\tpart:" << frame->m_partIndex
++				<< "\ttimestamp:" << curTime.tv_sec << "." << curTime.tv_usec
++				<< "\toriginalSize:" << frame->m_size << "\tsize:" << fFrameSize
++				<< "\tmaxSize:" << fMaxSize << "\ttruncated:" << fNumTruncatedBytes
++				<< "\tqueuedHash:" << formatHash(frame->m_hash)
++				<< "\tcurrentHash:" << formatHash(currentHash)
++				<< "\tdeliveredHash:" << formatHash(deliveredHash)
++				<< "\thashChanged:" << (currentHash != frame->m_hash ? 1 : 0)
++				<< "\tdiff:" <<  (diff.tv_sec*1000+diff.tv_usec/1000) << "ms\tqueue:" << m_captureQueue.size();
+ 			
+ 			fPresentationTime = frame->m_timestamp;
+ 			memcpy(fTo, frame->m_buffer, fFrameSize);
+@@ -217,14 +250,19 @@ int V4L2DeviceSource::getNextFrame()
+ // post frame to queue
+ void V4L2DeviceSource::postFrame(char * frame, int frameSize, const timeval &ref) 
+ {
++	uint64_t sequence = ++m_captureSequence;
++	uint64_t hash = frameHash(frame, frameSize);
+ 	timeval tv;
+ 	gettimeofday(&tv, NULL);												
+ 	timeval diff;
+ 	timersub(&tv,&ref,&diff);
+ 	m_in.notify(tv.tv_sec, frameSize);
+-	LOG(DEBUG) << "postFrame\ttimestamp:" << ref.tv_sec << "." << ref.tv_usec << "\tsize:" << frameSize <<"\tdiff:" <<  (diff.tv_sec*1000+diff.tv_usec/1000) << "ms";
++	LOG(DEBUG) << "postFrame\tmedia:" << (m_isVideo ? "video" : "audio")
++		<< "\tseq:" << sequence << "\ttimestamp:" << ref.tv_sec << "." << ref.tv_usec
++		<< "\tsize:" << frameSize << "\thash:" << formatHash(hash)
++		<< "\tdiff:" <<  (diff.tv_sec*1000+diff.tv_usec/1000) << "ms";
+ 	
+-	processFrame(frame,frameSize,ref);
++	processFrame(frame,frameSize,ref,sequence);
+ 	if (m_outfd != -1) 
+ 	{
+ 		int written = write(m_outfd, frame, frameSize);
+@@ -235,7 +273,7 @@ void V4L2DeviceSource::postFrame(char * frame, int frameSize, const timeval &ref
+ }	
+ 
+ 		
+-void V4L2DeviceSource::processFrame(char * frame, int frameSize, const timeval &ref) 
++void V4L2DeviceSource::processFrame(char * frame, int frameSize, const timeval &ref, uint64_t sequence)
+ {
+ 	timeval tv;
+ 	gettimeofday(&tv, NULL);												
+@@ -243,6 +281,7 @@ void V4L2DeviceSource::processFrame(char * frame, int frameSize, const timeval &
+ 	timersub(&tv,&ref,&diff);
+ 		
+ 	std::list< std::pair<unsigned char*,size_t> > frameList = this->splitFrames((unsigned char*)frame, frameSize);
++	unsigned int partIndex = 0;
+ 	while (!frameList.empty())
+ 	{
+ 		std::pair<unsigned char*,size_t>& item = frameList.front();
+@@ -252,16 +291,21 @@ void V4L2DeviceSource::processFrame(char * frame, int frameSize, const timeval &
+ 			// last frame will release buffer
+ 			allocatedBuffer = frame;
+ 		}
+-		queueFrame((char*)item.first,size,ref,allocatedBuffer);
++		queueFrame((char*)item.first,size,ref,sequence,partIndex,allocatedBuffer);
+ 		frameList.pop_front();
+ 
+-		LOG(DEBUG) << "queueFrame\ttimestamp:" << ref.tv_sec << "." << ref.tv_usec << "\tsize:" << size <<"\tdiff:" <<  (diff.tv_sec*1000+diff.tv_usec/1000) << "ms";		
++		LOG(DEBUG) << "queueFrame\tmedia:" << (m_isVideo ? "video" : "audio")
++			<< "\tseq:" << sequence << "\tpart:" << partIndex
++			<< "\ttimestamp:" << ref.tv_sec << "." << ref.tv_usec << "\tsize:" << size
++			<< "\tdiff:" <<  (diff.tv_sec*1000+diff.tv_usec/1000) << "ms";
++		++partIndex;
+ 	}			
+ }	
+ 
+ // post a frame to fifo
+-void V4L2DeviceSource::queueFrame(char * frame, int frameSize, const timeval &tv, char * allocatedBuffer) 
++void V4L2DeviceSource::queueFrame(char * frame, int frameSize, const timeval &tv, uint64_t sequence, unsigned int partIndex, char * allocatedBuffer)
+ {
++	uint64_t hash = frameHash(frame, frameSize);
+ 	pthread_mutex_lock (&m_mutex);
+ 	while (m_captureQueue.size() >= m_queueSize)
+ 	{
+@@ -269,7 +313,7 @@ void V4L2DeviceSource::queueFrame(char * frame, int frameSize, const timeval &tv
+ 		delete m_captureQueue.front();
+ 		m_captureQueue.pop_front();
+ 	}
+-	m_captureQueue.push_back(new Frame(frame, frameSize, tv, allocatedBuffer));	
++	m_captureQueue.push_back(new Frame(frame, frameSize, tv, sequence, partIndex, hash, allocatedBuffer));
+ 	pthread_mutex_unlock (&m_mutex);
+ 	
+ 	// post an event to ask to deliver the frame

@@ -193,6 +193,12 @@ v4l2rtspserverをオン/オフします。
 
 `RTSP_DSCP`を`LIVE555_DSCP`としてv4l2rtspserverに渡し、live555側で送信ソケットにDSCPを設定します。
 
+圧縮映像フレームの経路診断は`/scripts/cmd video <ch> diag on`で有効化し、
+`/scripts/cmd video <ch> diag off`で無効化します。有効時はiCamera_app側のwrite直前に、
+フレーム連番、時刻、サイズ、FNV-1a 64bitハッシュ、write結果を`tools.log`へ出力します。
+`v4l2rtspserver`を`-vv`で起動すると、V4L2読取直後とLIVE555への配送直前にも同じハッシュ、
+NALの分割番号、受入上限、切り詰めバイト数を出力します。
+
 ## `/scripts/set_crontab.sh`
 
 `reboot.sh`や`timelapse.sh`を起動する時刻をcrontabに設定するためのスクリプトです。
