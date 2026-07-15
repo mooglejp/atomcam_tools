@@ -288,7 +288,7 @@ static char *MotionArea(char *tokenPtr, const char *config, int item) {
 
 static int findSetTrackState(void) {
 
-  static const char *TrackStateLog = "[%s,%04d]set_track_state:%d";
+  static const char *TrackStateLog = "[%s,%04d]set_track_state:%d\n";
 
   char path[256];
   snprintf(path, sizeof(path), "/proc/%d/maps", getpid());
