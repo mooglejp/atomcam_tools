@@ -234,6 +234,19 @@ func NewService(registry *camera.Registry) *Service {
 	}
 }
 
+func currentPTZPosition(cam *camera.Camera, operation string) (pan, tilt int) {
+	pan, tilt, err := cam.SyncPTZPosition()
+	if err == nil {
+		log.Printf("PTZ %s: synchronized camera position to (%d, %d)", operation, pan, tilt)
+		return pan, tilt
+	}
+
+	pan, tilt = cam.GetPTZPosition()
+	log.Printf("PTZ %s: failed to synchronize camera position, using cached position (%d, %d): %v",
+		operation, pan, tilt, err)
+	return pan, tilt
+}
+
 // GetNodes handles GetNodes request
 func (s *Service) GetNodes() *GetNodesResponse {
 	return &GetNodesResponse{
@@ -346,7 +359,7 @@ func (s *Service) ContinuousMove(profileToken string, velocity PTZSpeed) error {
 	}
 
 	// Get current position
-	currentPan, currentTilt := profile.Camera.GetPTZPosition()
+	currentPan, currentTilt := currentPTZPosition(profile.Camera, "ContinuousMove")
 
 	// Calculate movement delta based on velocity
 	// velocity range: -1.0 to 1.0
@@ -584,7 +597,7 @@ func (s *Service) AbsoluteMove(profileToken string, position PTZVector, speed *P
 	if profile.Camera.Config.PTZ.HorizontalFOV > 0 && profile.Camera.Config.PTZ.VerticalFOV > 0 {
 		// Use FOV-aware conversion: treat ONVIF coordinates as positions within current view
 		// Get current position as the center of the view
-		currentPan, currentTilt := profile.Camera.GetPTZPosition()
+		currentPan, currentTilt := currentPTZPosition(profile.Camera, "AbsoluteMove")
 
 		// Check if position is uninitialized
 		if currentPan == math.MinInt || currentTilt == math.MinInt || currentPan < 0 || currentTilt < 0 {
@@ -692,7 +705,7 @@ func (s *Service) RelativeMove(profileToken string, translation PTZVector, speed
 	}
 
 	// Get current position
-	currentPan, currentTilt := profile.Camera.GetPTZPosition()
+	currentPan, currentTilt := currentPTZPosition(profile.Camera, "RelativeMove")
 
 	// Check if position is uninitialized (int min value indicates uninitialized state)
 	if currentPan == math.MinInt || currentTilt == math.MinInt || currentPan < 0 || currentTilt < 0 {

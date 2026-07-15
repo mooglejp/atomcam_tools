@@ -91,6 +91,16 @@ func (c *Camera) SetPTZPosition(pan, tilt int) {
 	c.ptzTilt = tilt
 }
 
+// SyncPTZPosition refreshes the cached PTZ position from the camera.
+func (c *Camera) SyncPTZPosition() (pan, tilt int, err error) {
+	pan, tilt, err = c.Client.PTZGetPosition()
+	if err != nil {
+		return 0, 0, err
+	}
+	c.SetPTZPosition(pan, tilt)
+	return pan, tilt, nil
+}
+
 // Close stops the camera client's background goroutines
 func (c *Camera) Close() {
 	c.Client.Close()

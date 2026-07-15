@@ -2,6 +2,11 @@ package camera
 
 import (
 	"fmt"
+	"io"
+	"math"
+	"net/http"
+	"strconv"
+	"strings"
 )
 
 // PTZMove moves the camera to the specified pan/tilt position with given speed
@@ -34,10 +39,50 @@ func (c *Client) PTZStop() error {
 	return nil
 }
 
-// PTZGetPosition gets current PTZ position (stub - AtomCam doesn't provide position feedback)
+// PTZGetPosition gets the current PTZ position from AtomCam's status endpoint.
 func (c *Client) PTZGetPosition() (pan, tilt int, err error) {
-	// Note: AtomCam's cmd.cgi doesn't provide a command to query current position
-	// This is a limitation of the camera firmware
-	// Return error indicating not supported
-	return 0, 0, fmt.Errorf("PTZ position query not supported by AtomCam")
+	url := fmt.Sprintf("http://%s:%d/cgi-bin/cmd.cgi?name=status", c.cfg.Host, c.cfg.HTTPPort)
+	resp, err := c.httpClient.Get(url)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get PTZ position: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, 0, fmt.Errorf("unexpected status code while getting PTZ position: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read PTZ position: %w", err)
+	}
+
+	for _, line := range strings.Split(string(body), "\n") {
+		if !strings.HasPrefix(line, "MOTORPOS=") {
+			continue
+		}
+
+		fields := strings.Fields(strings.TrimPrefix(line, "MOTORPOS="))
+		if len(fields) < 2 {
+			return 0, 0, fmt.Errorf("invalid MOTORPOS response: %q", line)
+		}
+
+		panValue, err := strconv.ParseFloat(fields[0], 64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid MOTORPOS pan value %q: %w", fields[0], err)
+		}
+		tiltValue, err := strconv.ParseFloat(fields[1], 64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("invalid MOTORPOS tilt value %q: %w", fields[1], err)
+		}
+
+		pan = int(math.Round(panValue))
+		tilt = int(math.Round(tiltValue))
+		if pan < 0 || pan > 355 || tilt < 0 || tilt > 180 {
+			return 0, 0, fmt.Errorf("MOTORPOS out of range: pan=%d tilt=%d", pan, tilt)
+		}
+		return pan, tilt, nil
+	}
+
+	return 0, 0, fmt.Errorf("MOTORPOS not found in status response")
 }
