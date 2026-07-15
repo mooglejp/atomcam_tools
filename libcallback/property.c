@@ -7,8 +7,13 @@
 extern char CommandResBuf[];
 extern void CommandResponse(int fd, const char *res);
 extern int GetUserConfig(const char *key);
+extern int SetUserConfig(const char *key, int value);
+
+extern unsigned int _init;
+extern unsigned int _fini;
 
 static void (*ProtocolSetProperty)(char * buf1, char *req, char *res);
+static void (*SetTrackState)(int state);
 
 static char *Raw(char *tokenPtr, const char *config, int item);
 static char *NightVision(char *tokenPtr, const char *config, int item);
@@ -18,6 +23,7 @@ static char *OnOff(char *tokenPtr, const char *config, int item);
 static char *Level3(char *tokenPtr, const char *config, int item);
 static char *RecordType(char *tokenPtr, const char *config, int item);
 static char *MotionArea(char *tokenPtr, const char *config, int item);
+static char *Tracking(char *tokenPtr, const char *config, int item);
 
 struct CommandTableSt {
   const char *cmd;
@@ -46,6 +52,7 @@ static struct CommandTableSt PropertyCommandTable[] = {
   { "timestamp",      "osdSwitch",      37,  &OnOff },         // timestamp on:1/off:2
   { "watermark",      "watermark_flag", 7,   &OnOff },         // watermark on:1/off:2
   { "motionArea",     "MAT",            15,  &MotionArea },    // motionArea all:3(MAT:0)/rect:1 <sx:0-99> <sy:0-99> <width:0-99> <height:0-99>
+  { "tracking",        "TrackSwitch",    64,  &Tracking },      // tracking on:1/off:2 (ATOM Cam Swing)
 };
 
 static int setItemProp(int item, int val) {
@@ -279,8 +286,109 @@ static char *MotionArea(char *tokenPtr, const char *config, int item) {
   return err ? "error" : "ok";
 }
 
-extern unsigned int _init;
-extern unsigned int _fini;
+static int findSetTrackState(void) {
+
+  static const char *TrackStateLog = "[%s,%04d]set_track_state:%d";
+
+  char path[256];
+  snprintf(path, sizeof(path), "/proc/%d/maps", getpid());
+  FILE *fp = fopen(path, "r");
+  if(!fp) {
+    fprintf(stderr, "tracking: file can't open /proc/pid/maps\n");
+    return -1;
+  }
+
+  unsigned int mapStart = 0;
+  unsigned int mapEnd = 0;
+  unsigned int fini = (unsigned int)&_fini;
+  char line[256];
+  while(fgets(line, sizeof(line), fp)) {
+    unsigned int start = 0;
+    unsigned int end = 0;
+    if((sscanf(line, "%08x-%08x", &start, &end) == 2) &&
+       (fini >= start) && (fini < end)) {
+      mapStart = start;
+      mapEnd = end;
+      break;
+    }
+  }
+  fclose(fp);
+  if(!mapStart || !mapEnd) {
+    fprintf(stderr, "tracking: iCamera_app mapping not found\n");
+    return -1;
+  }
+
+  unsigned int strAddr = 0;
+  for(char *p = (char *)&_fini; p < (char *)mapEnd; p++) {
+    if((*p == '[') && !strcmp(p, TrackStateLog)) {
+      strAddr = (unsigned int)p;
+      break;
+    }
+  }
+  if(!strAddr) {
+    fprintf(stderr, "tracking: set_track_state string not found\n");
+    return -1;
+  }
+
+  unsigned int lui = strAddr >> 16;
+  unsigned int addiu = strAddr & 0xffff;
+  if(addiu & 0x8000) lui++;
+  lui |= 0x3c000000;
+  addiu |= 0x24040000;
+
+  const unsigned int luiMask = 0xffe0ffff;
+  const unsigned int stackAdjustMask = 0xffff0000;
+  const unsigned int stackAdjust = 0x27bd0000;
+  for(unsigned int *pc = &_init; pc < &_fini; pc++) {
+    if((*pc & luiMask) != lui) continue;
+
+    unsigned int reg = (*pc >> 16) & 31;
+    for(int i = 1; i < 32 && pc + i < &_fini; i++) {
+      if(pc[i] != (addiu | (reg << 21))) continue;
+
+      for(int j = 0; j < 128 && pc - j >= &_init; j++) {
+        unsigned int instruction = pc[-j];
+        if(((instruction & stackAdjustMask) == stackAdjust) &&
+           (instruction & 0x8000)) {
+          SetTrackState = (void (*)(int))(pc - j);
+          fprintf(stderr, "tracking: set_track_state: %08x\n",
+                  (unsigned int)SetTrackState);
+          return 0;
+        }
+      }
+    }
+  }
+
+  fprintf(stderr, "tracking: set_track_state function not found\n");
+  return -1;
+}
+
+static char *Tracking(char *tokenPtr, const char *config, int item) {
+
+  (void)item;
+  int val = -1;
+  char *p = strtok_r(NULL, " \t\r\n", &tokenPtr);
+  if(!p) {
+    int ret = GetUserConfig(config);
+    if(ret == 1) return "on";
+    if(ret == 2) return "off";
+    return "error";
+  }
+
+  if(!strcasecmp(p, "on")) {
+    val = 1;
+  } else if(!strcasecmp(p, "off")) {
+    val = 2;
+  }
+  if(val < 0) return "error";
+
+  if(!SetTrackState && findSetTrackState()) return "error";
+  if(SetUserConfig(config, val)) return "error";
+
+  SetTrackState(val);
+  return "ok";
+}
+
 static const char *SearchStr = "[%s,%04d]----- p2p recv protocol set property -----\n";
 
 static void __attribute ((constructor)) set_property_init(void) {

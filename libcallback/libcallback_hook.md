@@ -558,6 +558,7 @@ property audioRec [on|off]
 property timestamp [on|off] 
 property watermark [on|off] 
 property motionArea [all|rect] [<sx> <sy> <width> <height>]
+property tracking [on|off]
 ```
 
 MobileAppのUIからの操作に相当するコマンド群。
@@ -584,6 +585,7 @@ property audioRecは録音のオン／オフ
 property timestampはタイムスタンプのオン／オフ
 property watermarkはロゴのオン／オフ
 property motionAreaは検知領域の切り替え
+property trackingはAtomCamSwingの自動追尾のオン／オフ
 property raw以外は引数無しの場合は現在値を返す。
 
 ##### hook point
@@ -598,3 +600,6 @@ void ProtocolSetProperty(char * buf1, char *req, char *res);
 
 と定義して、req, resのjson文字列でアクセスしてAPIを呼び出している。
 
+AtomCamSwingの自動追尾はPropertyList経由では実行状態が更新されないため、
+`property tracking`では内部のuser_config (`TrackSwitch`) を更新した後、
+`set_track_state`のログ文字列を基準に特定した内部関数を直接呼び出している。
