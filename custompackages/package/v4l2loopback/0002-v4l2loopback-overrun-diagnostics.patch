@@ -1,0 +1,50 @@
+diff --git a/v4l2loopback.c b/v4l2loopback.c
+index 33b9ab5..be0dd6f 100644
+--- a/v4l2loopback.c
++++ b/v4l2loopback.c
+@@ -390,6 +390,7 @@ struct v4l2_loopback_opener {
+ 	int read_position; /* number of last processed frame + 1 or
+ 			    * write_position - 1 if reader went out of sync */
+ 	unsigned int reread_count;
++	unsigned long dropped_frames;
+ 	struct v4l2_buffer *buffers;
+ 	int buffers_number; /* should not be big, 4 is a good choice */
+ 	int timeout_image_io;
+@@ -1599,7 +1600,9 @@ static int get_capture_buffer(struct file *file)
+ 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+ 	struct v4l2_loopback_opener *opener = file->private_data;
+ 	int pos, ret;
++	int dropped = 0;
+ 	int timeout_happened;
++	unsigned long dropped_total = 0;
+ 
+ 	if ((file->f_flags & O_NONBLOCK) &&
+ 	    (dev->write_position <= opener->read_position &&
+@@ -1617,8 +1620,12 @@ static int get_capture_buffer(struct file *file)
+		      dev->used_buffers;
+ 	} else {
+ 		opener->reread_count = 0;
+-		if (dev->write_position > opener->read_position + dev->used_buffers)
++		if (dev->write_position > opener->read_position + dev->used_buffers) {
++			dropped = dev->write_position - opener->read_position - 1;
++			opener->dropped_frames += dropped;
++			dropped_total = opener->dropped_frames;
+ 			opener->read_position = dev->write_position - 1;
++		}
+ 		pos = opener->read_position % dev->used_buffers;
+ 		++opener->read_position;
+ 	}
+@@ -1626,6 +1633,13 @@ static int get_capture_buffer(struct file *file)
+ 	dev->timeout_happened = 0;
+ 	spin_unlock_bh(&dev->lock);
+ 
++	if (dropped > 0) {
++		printk(KERN_WARNING
++		       "v4l2-loopback: %s capture overrun dropped=%d total=%lu write_position=%d read_position=%d buffers=%d\n",
++		       dev->vdev->name, dropped, dropped_total, dev->write_position,
++		       opener->read_position, dev->used_buffers);
++	}
++
+ 	ret = dev->bufpos2index[pos];
+ 	if (timeout_happened) {
+ 		/* although allocated on-demand, timeout_image is freed only
