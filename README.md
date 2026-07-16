@@ -837,7 +837,7 @@ GitHubのLatest VersionにUpdate します。GitHubからLatest Versionをダウ
 
 台数が多い場合や回線が細い場合、PCで[GitHubのLatest Version](https://github.com/mooglejp/atomcam_tools/releases/latest)のatomcam_tools.zipをダウンロードし、展開せずにSD-Cardのupdateフォルダに入れて、リブートすることでもUpdateできます。この場合はVerのチェックは行われません。
 
-このforkのtoolバージョンは、fork元のベースバージョンにカスタムリビジョンを付けた `2.5.19-moogle.5` のような形式で表記します。`2.5.19` がベース、`moogle.5` がこのfork側のリビジョンです。
+このforkのtoolバージョンは、fork元のベースバージョンにカスタムリビジョンを付けた `2.5.19-moogle.6` のような形式で表記します。`2.5.19` がベース、`moogle.6` がこのfork側のリビジョンです。
 
 ##### - カスタム更新ZIPファイル
 
