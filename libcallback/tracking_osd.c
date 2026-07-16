@@ -64,9 +64,9 @@ static int CreateTrackingOSD(void) {
    * the same way as the existing center mark.
    */
   static const int Shapes[TRACKING_OSD_REGION_COUNT][5] = {
-    { 2, 588,  13, 618,  43 }, // rectangle
-    { 1, 584,  28, 622,  28 }, // horizontal crosshair
-    { 1, 603,   9, 603,  47 }, // vertical crosshair
+    { 2, 595,  20, 611,  36 }, // rectangle
+    { 1, 593,  28, 613,  28 }, // horizontal crosshair
+    { 1, 603,  18, 603,  38 }, // vertical crosshair
   };
 
   struct RgnGrpInfoSt grpInfo;
@@ -79,8 +79,8 @@ static int CreateTrackingOSD(void) {
   struct RgnInfoSt info;
   memset(&info, 0, sizeof(info));
   info.pixfmt = 8;
-  info.color = 0xffffa060;    // same visible red used by the center mark
-  info.width = 2;
+  info.color = 0xffff0000;    // OSD red
+  info.width = 3;
 
   for(int i = 0; i < TRACKING_OSD_REGION_COUNT; i++) {
     info.type = Shapes[i][0];
