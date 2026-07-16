@@ -8,6 +8,7 @@ extern char CommandResBuf[];
 extern void CommandResponse(int fd, const char *res);
 extern int GetUserConfig(const char *key);
 extern int SetUserConfig(const char *key, int value);
+extern int TrackingOSDSet(int enabled);
 
 extern unsigned int _init;
 extern unsigned int _fini;
@@ -386,6 +387,8 @@ static char *Tracking(char *tokenPtr, const char *config, int item) {
   if(SetUserConfig(config, val)) return "error";
 
   SetTrackState(val);
+  int osdRet = TrackingOSDSet(val == 1);
+  if(osdRet) fprintf(stderr, "tracking osd: immediate update failed: %d\n", osdRet);
   return "ok";
 }
 

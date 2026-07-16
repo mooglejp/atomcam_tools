@@ -603,3 +603,7 @@ void ProtocolSetProperty(char * buf1, char *req, char *res);
 AtomCamSwingの自動追尾はPropertyList経由では実行状態が更新されないため、
 `property tracking`では内部のuser_config (`TrackSwitch`) を更新した後、
 `set_track_state`のログ文字列を基準に特定した内部関数を直接呼び出している。
+
+自動追尾がオンの間は、`tracking_osd.c`が既存のセンターマークと同じ線分OSDを使って
+映像右上に小さな照準を表示する。`TrackSwitch`を監視するため、`property tracking`だけでなく、
+公式アプリからの切り替えと起動時の状態にも追従する。
