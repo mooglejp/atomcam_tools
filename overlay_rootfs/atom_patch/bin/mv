@@ -80,8 +80,15 @@ else
 fi
 
 if [ "$FMT" != "" ]; then
-  TMPFILE="/tmp/mv_`cat /proc/sys/kernel/random/uuid`"
-  /bin/busybox mv $1 $TMPFILE
+  UUID=`cat /proc/sys/kernel/random/uuid`
+  [ "$UUID" != "" ] || exit 1
+  # Keep staging on the source filesystem. Direct-to-SD recordings must not
+  # be copied through the size-limited /tmp tmpfs.
+  TMPFILE="${1%/*}/mv_${UUID}"
+  if ! /bin/busybox mv "$1" "$TMPFILE"; then
+    echo "mv: failed to stage recording: $1" >&2
+    exit 1
+  fi
   (
     if [ "$PERIODICREC_CIFS" = "on" ] && /tmp/system/bin/mount_cifs.sh ; then
       TIME=`echo $2 | sed -e 's|^/media/mmc/record/||' -e 's|/||g' -e 's|.mp4$||'`
@@ -94,11 +101,14 @@ if [ "$FMT" != "" ]; then
     fi
 
     if [ "$PERIODICREC_SDCARD" = "on" ]; then
-      /bin/busybox mv $TMPFILE $2 || /bin/busybox rm $TMPFILE
+      if ! /bin/busybox mv "$TMPFILE" "$2"; then
+        echo "mv: failed to save recording: $TMPFILE -> $2" >&2
+        exit 1
+      fi
       SDCARDFILE=${2##*media/mmc/}
       STORAGE="${STORAGE}, \"sdcardFile\":\"${SDCARDFILE}\""
     else
-      /bin/busybox rm $TMPFILE
+      /bin/busybox rm "$TMPFILE"
       LD_LIBRARY_PATH=/tmp/system/lib:/tmp/system/usr/lib /tmp/system/lib/ld.so.1 /tmp/system/bin/find /media/mmc/record -depth -type d -empty -delete
     fi
     if [ "$WEBHOOK_URL" != "" ] && [ "$WEBHOOK_RECORD_EVENT" = "on" ]; then
@@ -109,4 +119,3 @@ else
   /bin/busybox rm $1
 fi
 exit 0
-
