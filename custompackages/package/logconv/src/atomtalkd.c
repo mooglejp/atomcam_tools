@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #define ATOM_APP_PORT 4000
@@ -22,6 +23,7 @@
 #define DEFAULT_FIFO "/tmp/atomtalk.pcm"
 
 static volatile sig_atomic_t running = 1;
+static volatile sig_atomic_t exit_signal = 0;
 
 struct session {
   int active;
@@ -34,7 +36,7 @@ struct session {
 };
 
 static void on_signal(int sig) {
-  (void)sig;
+  exit_signal = sig;
   running = 0;
 }
 
@@ -45,6 +47,14 @@ static long long now_ms(void) {
 }
 
 static void log_msg(const char *fmt, ...) {
+  char timestamp[32] = "unknown-time";
+  time_t t = time(NULL);
+  struct tm tm_buf;
+  if(localtime_r(&t, &tm_buf)) {
+    strftime(timestamp, sizeof(timestamp), "%Y/%m/%d %H:%M:%S", &tm_buf);
+  }
+
+  fprintf(stderr, "%s atomtalkd[%ld]: ", timestamp, (long)getpid());
   va_list ap;
   va_start(ap, fmt);
   vfprintf(stderr, fmt, ap);
@@ -148,6 +158,7 @@ static void reset_session(struct session *s) {
   s->authenticated = 0;
   s->fifo_fd = -1;
   s->cmd_fd = -1;
+  s->fifo[0] = '\0';
   s->last_packet_ms = 0;
   memset(&s->peer, 0, sizeof(s->peer));
 }
@@ -292,6 +303,7 @@ int main(int argc, char **argv) {
 
   signal(SIGINT, on_signal);
   signal(SIGTERM, on_signal);
+  signal(SIGHUP, SIG_IGN);
   signal(SIGPIPE, SIG_IGN);
 
   int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -314,6 +326,7 @@ int main(int argc, char **argv) {
 
   struct session sess;
   reset_session(&sess);
+  int exit_code = 0;
   log_msg("atomtalkd listening on UDP port %d volume=%d idle=%dms token=%s", port, volume, idle_ms, token[0] ? "on" : "off");
 
   while(running) {
@@ -335,6 +348,8 @@ int main(int argc, char **argv) {
     int ready = select(sock + 1, &rfds, NULL, NULL, &tv);
     if(ready < 0) {
       if(errno == EINTR) continue;
+      log_msg("select failed: %s", strerror(errno));
+      exit_code = 1;
       break;
     }
 
@@ -410,5 +425,10 @@ int main(int argc, char **argv) {
 
   stop_session(&sess);
   close(sock);
-  return 0;
+  if(exit_signal) {
+    log_msg("exiting on signal %d", (int)exit_signal);
+  } else {
+    log_msg("exiting rc=%d", exit_code);
+  }
+  return exit_code;
 }
