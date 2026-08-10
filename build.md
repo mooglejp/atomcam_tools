@@ -227,6 +227,8 @@ CGIの実行は`www-data`アカウントでの実行なのでシステム制御�
 
 PC側クライアントからUDPで受け取った8kHz/mono/S16LE PCMをFIFOに書き込み、`iCamera_app` 内の `talk` コマンド経由でカメラのスピーカーへ出力します。音声データはWebUIを通しません。
 
+起動時は短時間の再試行を行い、その後もcron watchdogが毎分死活を確認します。予期せず終了した場合は自動的に再起動し、起動・終了理由は`/tmp/log/atomtalkd.log`へ記録します。
+
 ## `/usr/bin/atomhookd`
 
 iCamera_appのログを受けてWebHookのイベントやタイムラプス完了を拾います。録画ファイルPOSTだけを使う構成では起動しません。

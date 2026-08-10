@@ -3,15 +3,23 @@
 # atomtalkd
 #
 
-HACK_INI=/tmp/hack.ini
+HACK_INI=${ATOMTALK_HACK_INI:-/tmp/hack.ini}
+LOG=${ATOMTALK_LOG:-/tmp/log/atomtalkd.log}
+ATOMTALK_BIN=${ATOMTALK_BIN:-/usr/bin/atomtalkd}
+START_RETRIES=3
+
+log_atomtalk() {
+  mkdir -p /tmp/log
+  echo "$(date '+%Y/%m/%d %H:%M:%S') S63atomtalk: $*" >> "$LOG"
+}
 
 get_ini() {
   awk -F "=" -v key="$1" '$1 ~ "^[ \t]*" key "[ \t]*$" {print $2}' $HACK_INI 2>/dev/null | tr -d '\r' | sed 's/^[ \t]*//;s/[ \t]*$//'
 }
 
 start_atomtalk() {
-  [ "$(get_ini ATOMTALK_ENABLE)" = "on" ] || exit 0
-  pidof atomtalkd >/dev/null 2>&1 && exit 0
+  [ "$(get_ini ATOMTALK_ENABLE)" = "on" ] || return 0
+  pidof atomtalkd >/dev/null 2>&1 && return 0
 
   port=$(get_ini ATOMTALK_PORT)
   volume=$(get_ini ATOMTALK_VOLUME)
@@ -21,17 +29,51 @@ start_atomtalk() {
   [ "$volume" != "" ] || volume=40
   [ "$idle" != "" ] || idle=1500
 
-  mkdir -p /tmp/log
-  if [ "$token" != "" ]; then
-    /usr/bin/atomtalkd -p "$port" -v "$volume" -i "$idle" -k "$token" >> /tmp/log/atomtalkd.log 2>&1 &
-  else
-    /usr/bin/atomtalkd -p "$port" -v "$volume" -i "$idle" >> /tmp/log/atomtalkd.log 2>&1 &
-  fi
+  attempt=1
+  while [ "$attempt" -le "$START_RETRIES" ]; do
+    # Another start request (for example the watchdog racing with a WebUI
+    # restart) may have completed while this script was waiting.
+    pidof atomtalkd >/dev/null 2>&1 && return 0
+
+    log_atomtalk "starting attempt=$attempt port=$port"
+    if [ "$token" != "" ]; then
+      "$ATOMTALK_BIN" -p "$port" -v "$volume" -i "$idle" -k "$token" >> "$LOG" 2>&1 &
+    else
+      "$ATOMTALK_BIN" -p "$port" -v "$volume" -i "$idle" >> "$LOG" 2>&1 &
+    fi
+    pid=$!
+
+    sleep 1
+    if kill -0 "$pid" >/dev/null 2>&1; then
+      log_atomtalk "started pid=$pid"
+      return 0
+    fi
+
+    wait "$pid" 2>/dev/null
+    rc=$?
+    log_atomtalk "start failed attempt=$attempt rc=$rc"
+    attempt=$((attempt + 1))
+  done
+
+  log_atomtalk "start abandoned after $START_RETRIES attempts"
+  return 1
 }
 
 stop_atomtalk() {
-  killall atomtalkd >/dev/null 2>&1
+  if pidof atomtalkd >/dev/null 2>&1; then
+    killall atomtalkd >/dev/null 2>&1
+    count=0
+    while pidof atomtalkd >/dev/null 2>&1 && [ "$count" -lt 5 ]; do
+      sleep 1
+      count=$((count + 1))
+    done
+    if pidof atomtalkd >/dev/null 2>&1; then
+      log_atomtalk "stop timed out"
+      return 1
+    fi
+  fi
   rm -f /tmp/atomtalk.pcm
+  return 0
 }
 
 case "$1" in
@@ -42,11 +84,13 @@ case "$1" in
     stop_atomtalk
     ;;
   restart|reload)
-    stop_atomtalk
+    stop_atomtalk && start_atomtalk
+    ;;
+  watchdog)
     start_atomtalk
     ;;
   *)
-    echo "Usage: $0 {start|stop|restart}"
+    echo "Usage: $0 {start|stop|restart|watchdog}"
     exit 1
 esac
 
