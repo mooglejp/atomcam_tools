@@ -46,28 +46,34 @@ char *JpegCapture(int fd, char *tokenPtr) {
 
   char *p = strtok_r(NULL, " \t\r\n", &tokenPtr);
   if(p && !strcasecmp(p, "clear")) {
+    pthread_mutex_lock(&JpegDataMutex);
     FirstTask = LastTask = 0;
+    pthread_mutex_unlock(&JpegDataMutex);
     return "OK";
   }
   if(p && !strcasecmp(p, "status")) {
-    snprintf(CommandResBuf, 255, "FirstTask %d LastTask %d state %d,%d FT %d %d %d mutex %d", FirstTask, LastTask, DebugSequence, DebugCount, JpegTask[FirstTask].fd, JpegTask[FirstTask].ch, JpegTask[FirstTask].header, JpegDataMutex);
-    fprintf(stderr, "FirstTask %d LastTask %d state %d,%d FT %d %d %d mutex %d", FirstTask, LastTask, DebugSequence, DebugCount, JpegTask[FirstTask].fd, JpegTask[FirstTask].ch, JpegTask[FirstTask].header, JpegDataMutex);
+    pthread_mutex_lock(&JpegDataMutex);
+    snprintf(CommandResBuf, 255, "FirstTask %d LastTask %d state %d,%d FT %d %d %d", FirstTask, LastTask, DebugSequence, DebugCount, JpegTask[FirstTask].fd, JpegTask[FirstTask].ch, JpegTask[FirstTask].header);
+    fprintf(stderr, "FirstTask %d LastTask %d state %d,%d FT %d %d %d", FirstTask, LastTask, DebugSequence, DebugCount, JpegTask[FirstTask].fd, JpegTask[FirstTask].ch, JpegTask[FirstTask].header);
     for(int i = 0; i < JPEG_TASK_SIZE; i++) {
       int s = strlen(CommandResBuf);
       if(s <= 0) break;
       snprintf(CommandResBuf + s, 255 - s, "\n%d: %d %d %d", i, JpegTask[i].fd, JpegTask[i].header, JpegTask[i].ch);
       fprintf(stderr, "\n%d: %d %d %d", i, JpegTask[i].fd, JpegTask[i].header, JpegTask[i].ch);
     }
+    pthread_mutex_unlock(&JpegDataMutex);
     return CommandResBuf;
   }
   if(p && !strcasecmp(p, "unlock")) {
-    pthread_mutex_unlock(&JpegDataMutex);
-    return "OK";
+    return "unsupported";
   }
-  if(FirstTask == (LastTask + 1) & JPEG_TASK_MASK) {
+
+  pthread_mutex_lock(&JpegDataMutex);
+  if(FirstTask == ((LastTask + 1) & JPEG_TASK_MASK)) {
     fprintf(stderr, "[command] jpeg capture error %d\n", fd);
     write(fd, HttpErrorHeader, strlen(HttpErrorHeader));
     CommandResponse(fd, "error : jpeg capture error");
+    pthread_mutex_unlock(&JpegDataMutex);
     return NULL;
   }
 
@@ -171,16 +177,18 @@ static void *JpegCaptureThread() {
       DebugSequence = 5;
     }
     DebugSequence = 6;
+    pthread_mutex_unlock(&JpegDataMutex);
+    usleep(1000);
   }
+
+  return NULL;
 }
 
 static void __attribute ((constructor)) JpegInit(void) {
 
-  pthread_mutex_lock(&JpegDataMutex);
   pthread_t thread;
   if(pthread_create(&thread, NULL, JpegCaptureThread, NULL)) {
     fprintf(stderr, "pthread_create error\n");
-    pthread_mutex_unlock(&JpegDataMutex);
     return;
   }
 }
