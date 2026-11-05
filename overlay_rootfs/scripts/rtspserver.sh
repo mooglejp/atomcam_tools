@@ -75,6 +75,25 @@ if [ "$1" = "watchdog" ]; then
   [ "$RTSP_VIDEO0" = "on" -o "$RTSP_VIDEO1" = "on" -o "$RTSP_VIDEO2" = "on" ] || exit 0
 fi
 
+# Self-heal (seen on both cams after a reboot): a channel's capture switched off while its server keeps running leaves an
+# RTSP stream with no video track. Kill the server so the start below sets the captures again and restarts it.
+if [ "$1" = "watchdog" ] && pidof v4l2rtspserver > /dev/null ; then
+  for ch in 0 1 2; do
+    eval want=\$RTSP_VIDEO$ch
+    [ "$want" = "on" ] || continue
+    state=`/scripts/cmd video $ch`
+    case "$state" in
+      on*) ;;
+      *)
+        echo `date +"%Y/%m/%d %H:%M:%S"` ": video $ch capture was '$state', restarting v4l2rtspserver"
+        killall v4l2rtspserver > /dev/null 2>&1
+        sleep 1
+        break
+        ;;
+    esac
+  done
+fi
+
 if ! pidof v4l2rtspserver > /dev/null ; then
   [ "$1" != "on" -a "$1" != "restart" -a "$1" != "watchdog" -a "$RTSP_VIDEO0" != "on" -a "$RTSP_VIDEO1" != "on" -a "$RTSP_VIDEO2" != "on" ] && exit 0
 
